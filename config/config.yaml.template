@@ -1,0 +1,32 @@
+# ifind API Configuration
+ifind:
+  base_url: "https://quantapi.51ifind.com"
+  # refresh_token is read from environment variable IFIND_REFRESH_TOKEN
+  # Do NOT put refresh_token here
+
+# Scoring weights
+scoring:
+  weight_change_ratio: 0.25    # 涨幅权重
+  weight_body_change: 0.30     # 实体涨幅权重
+  weight_amount: 0.20          # 成交额权重
+  weight_vol_ratio: 0.25       # 量比权重
+  strong_change_threshold: 7.0 # 涨幅强势阈值(%)
+  strong_body_threshold: 5.0   # 实体涨幅强势阈值(%)
+
+# Board scoring
+board_scoring:
+  strong_ratio_weight: 0.6     # 强势个股占比权重
+  avg_score_weight: 0.4        # 平均得分权重
+
+# Scheduler
+scheduler:
+  scan_time: "09:36"           # 盘中扫描时间
+  sync_time: "20:00"           # 每日人气数据同步时间
+
+# Database
+database:
+  path: "data/scanner.db"
+
+# Webhook
+webhook:
+  url: ""                      # 企业微信 webhook URL
