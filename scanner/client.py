@@ -1,8 +1,8 @@
-"""ifind HTTP client for fetching concept board and stock data.
+"""ifind HTTP 客户端，用于获取概念板块和个股数据.
 
-Provides ``IfindClient`` which handles authentication (refresh_token
--> access_token), automatic token renewal on expiry, and rate-limit
-aware requests to the ifind Quant API.
+提供 ``IfindClient`` 类，负责处理鉴权流程（refresh_token
+-> access_token）、令牌过期自动续期，以及基于限流策略
+的 API 请求。
 """
 
 import logging
@@ -12,29 +12,28 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Token-expiry error codes that trigger an automatic refresh.
+# 令牌过期错误码，触发自动刷新.
 _TOKEN_EXPIRED_CODES = frozenset({
-    -1010,   # account logged out
-    -1302,   # access_token expired or illegal
+    -1010,   # 账号已登出
+    -1302,   # access_token 过期或非法
 })
 
-# Rate-limit error code.
+# 限流错误码.
 _RATE_LIMIT_CODE = -4400
 
-# Minimum interval (seconds) between consecutive API calls.
-# 600 req/min => 10 req/sec => 0.1s between calls.
+# 连续请求的最小间隔（秒）.
+# 600 次/分钟 => 10 次/秒 => 间隔 0.1 秒.
 _MIN_REQUEST_INTERVAL = 0.1
 
 
 class IfindClient:
-    """HTTP client for the ifind Quant API.
+    """ifind 量化 API 的 HTTP 客户端.
 
-    Handles token lifecycle, automatic retries on token expiry,
-    and basic rate limiting.
+    负责令牌生命周期管理、令牌过期自动重试以及基础限流.
 
     Attributes:
-        base_url: Base URL of the ifind API (no trailing slash).
-        refresh_token: Long-lived refresh token for authentication.
+        base_url: ifind API 基础地址（不含末尾斜杠）.
+        refresh_token: 长期有效的刷新令牌.
     """
 
     def __init__(
@@ -42,12 +41,12 @@ class IfindClient:
         base_url: str,
         refresh_token: str,
     ) -> None:
-        """Initialise the client.
+        """初始化客户端.
 
         Args:
-            base_url: e.g. ``https://quantapi.51ifind.com``.
-            refresh_token: Long-lived refresh token obtained from
-                the ifind platform.
+            base_url: API 基础地址，
+                如 ``https://quantapi.51ifind.com``.
+            refresh_token: 从 ifind 平台获取的长期刷新令牌.
         """
         self.base_url = base_url.rstrip("/")
         self.refresh_token = refresh_token
@@ -56,17 +55,17 @@ class IfindClient:
         self._last_request_time: float = 0.0
 
     # ------------------------------------------------------------------
-    # Token management
+    # 令牌管理
     # ------------------------------------------------------------------
 
     def _get_access_token(self) -> str:
-        """Fetch the current valid access token.
+        """获取当前有效的 access_token.
 
         Returns:
-            A valid access token string.
+            有效的 access_token 字符串.
 
         Raises:
-            RuntimeError: If the server response lacks an access_token.
+            RuntimeError: 服务端响应中未包含 access_token.
         """
         url = f"{self.base_url}/api/v1/get_access_token"
         headers = {
@@ -86,15 +85,15 @@ class IfindClient:
         return self._access_token
 
     def _refresh_access_token(self) -> str:
-        """Force-generate a new access token.
+        """强制生成新的 access_token.
 
-        Invalidates all previously issued tokens.
+        此操作会使之前签发的所有令牌失效.
 
         Returns:
-            The newly created access token string.
+            新创建的 access_token 字符串.
 
         Raises:
-            RuntimeError: If the server response lacks an access_token.
+            RuntimeError: 服务端响应中未包含 access_token.
         """
         url = f"{self.base_url}/api/v1/update_access_token"
         headers = {
@@ -114,12 +113,12 @@ class IfindClient:
         return self._access_token
 
     def _ensure_token(self) -> None:
-        """Make sure a cached access token is available."""
+        """确保缓存中已有有效的 access_token."""
         if not self._access_token:
             self._get_access_token()
 
     # ------------------------------------------------------------------
-    # Core request helper
+    # 核心请求方法
     # ------------------------------------------------------------------
 
     def _request(
@@ -127,21 +126,20 @@ class IfindClient:
         endpoint: str,
         data: dict,
     ) -> dict:
-        """Send an authenticated POST and return parsed JSON.
+        """发送带鉴权的 POST 请求并返回解析后的 JSON.
 
-        Automatically refreshes the access token on expiry and
-        retries the request once.
+        令牌过期时自动刷新并重试一次.
 
         Args:
-            endpoint: API path, e.g. ``/api/v1/data_pool``.
-            data: JSON body to send.
+            endpoint: API 路径，如 ``/api/v1/data_pool``.
+            data: 要发送的 JSON 请求体.
 
         Returns:
-            Parsed JSON response from the server.
+            服务端返回的解析后 JSON 响应.
 
         Raises:
-            RuntimeError: If the API returns a non-zero errorcode
-                that is not related to token expiry.
+            RuntimeError: API 返回非零 errorcode 且
+                该错误与令牌过期无关.
         """
         self._ensure_token()
         url = f"{self.base_url}{endpoint}"
@@ -154,6 +152,7 @@ class IfindClient:
         body = response.json()
         errorcode = body.get("errorcode", 0)
 
+        # 令牌过期时自动刷新并重试
         if errorcode in _TOKEN_EXPIRED_CODES:
             logger.info(
                 "Token expired (errorcode=%s), refreshing.",
@@ -161,7 +160,9 @@ class IfindClient:
             )
             self._refresh_access_token()
             headers["access_token"] = self._access_token
-            response = self._post_with_rate_limit(url, headers, data)
+            response = self._post_with_rate_limit(
+                url, headers, data
+            )
             body = response.json()
             errorcode = body.get("errorcode", 0)
 
@@ -179,18 +180,18 @@ class IfindClient:
         headers: dict,
         data: dict,
     ) -> requests.Response:
-        """Execute a POST respecting the minimum request interval.
+        """在遵守最小请求间隔的前提下执行 POST 请求.
 
         Args:
-            url: Full request URL.
-            headers: HTTP headers (must include access_token).
-            data: JSON body.
+            url: 完整的请求 URL.
+            headers: HTTP 请求头（须包含 access_token）.
+            data: JSON 请求体.
 
         Returns:
-            The ``requests.Response`` object.
+            ``requests.Response`` 对象.
 
         Raises:
-            RuntimeError: If a rate-limit response is received.
+            RuntimeError: 收到限流响应.
         """
         elapsed = time.monotonic() - self._last_request_time
         if elapsed < _MIN_REQUEST_INTERVAL:
@@ -199,7 +200,7 @@ class IfindClient:
         resp = self._session.post(url, json=data, headers=headers)
         self._last_request_time = time.monotonic()
 
-        # Handle rate-limit response at HTTP level.
+        # 在 HTTP 层面处理限流响应
         if resp.status_code == 200:
             body = resp.json()
             if body.get("errorcode") == _RATE_LIMIT_CODE:
@@ -211,7 +212,7 @@ class IfindClient:
         return resp
 
     # ------------------------------------------------------------------
-    # Data pool (专题报表)
+    # 数据池接口（专题报表）
     # ------------------------------------------------------------------
 
     def get_concept_popularity(
@@ -219,14 +220,14 @@ class IfindClient:
         date: str,
         tjzq: str = "近一周",
     ) -> list[dict]:
-        """Fetch concept popularity ranking from data pool p03797.
+        """从数据池 p03797 获取概念人气排名.
 
         Args:
-            date: Trading date, e.g. ``"2026-06-02"``.
-            tjzq: Statistical period filter (default ``"近一周"``).
+            date: 交易日期，如 ``"2026-06-02"``.
+            tjzq: 统计周期筛选条件（默认 ``"近一周"``）.
 
         Returns:
-            List of raw record dicts from the API.
+            API 返回的原始记录字典列表.
         """
         data = {
             "reportname": "p03797",
@@ -248,15 +249,15 @@ class IfindClient:
         concept_name: str,
         tjzq: str = "近一周",
     ) -> list[dict]:
-        """Fetch hot board constituent stocks (data pool p03798).
+        """从数据池 p03798 获取热门板块成分股.
 
         Args:
-            date: Trading date, e.g. ``"2026-06-02"``.
-            concept_name: Name of the concept board.
-            tjzq: Statistical period filter (default ``"近一周"``).
+            date: 交易日期，如 ``"2026-06-02"``.
+            concept_name: 概念板块名称.
+            tjzq: 统计周期筛选条件（默认 ``"近一周"``）.
 
         Returns:
-            List of raw record dicts from the API.
+            API 返回的原始记录字典列表.
         """
         data = {
             "reportname": "p03798",
@@ -274,7 +275,7 @@ class IfindClient:
         return self._extract_table_rows(body)
 
     # ------------------------------------------------------------------
-    # High-frequency (1min K-line)
+    # 高频数据（1分钟 K 线）
     # ------------------------------------------------------------------
 
     def get_high_frequency(
@@ -285,21 +286,21 @@ class IfindClient:
         endtime: str,
         interval: str = "1",
     ) -> dict:
-        """Fetch intraday high-frequency K-line data.
+        """获取日内高频 K 线数据.
 
         Args:
-            codes: List of stock codes,
-                e.g. ``["300033.SZ", "600030.SH"]``.
-            indicators: List of indicator names,
-                e.g. ``["open", "close"]``.
-            starttime: Start datetime,
-                e.g. ``"2026-06-02 09:30:00"``.
-            endtime: End datetime,
-                e.g. ``"2026-06-02 09:35:00"``.
-            interval: Bar interval (default ``"1"`` for 1min).
+            codes: 证券代码列表，
+                如 ``["300033.SZ", "600030.SH"]``.
+            indicators: 指标名称列表，
+                如 ``["open", "close"]``.
+            starttime: 起始时间，
+                如 ``"2026-06-02 09:30:00"``.
+            endtime: 结束时间，
+                如 ``"2026-06-02 09:35:00"``.
+            interval: K 线周期（默认 ``"1"`` 即1分钟）.
 
         Returns:
-            Raw API response dict keyed by ``tables``.
+            以 ``tables`` 为键的原始 API 响应字典.
         """
         data = {
             "codes": ",".join(codes),
@@ -313,7 +314,7 @@ class IfindClient:
         )
 
     # ------------------------------------------------------------------
-    # History quotation (daily K-line)
+    # 历史行情（日 K 线）
     # ------------------------------------------------------------------
 
     def get_history_quotation(
@@ -324,19 +325,19 @@ class IfindClient:
         enddate: str,
         interval: str = "D",
     ) -> dict:
-        """Fetch historical daily (or weekly/monthly) K-line data.
+        """获取历史日（或周/月）K 线数据.
 
         Args:
-            codes: List of stock codes,
-                e.g. ``["300033.SZ"]``.
-            indicators: List of indicator names,
-                e.g. ``["open", "close", "volume"]``.
-            startdate: Start date, e.g. ``"2026-05-26"``.
-            enddate: End date, e.g. ``"2026-06-02"``.
-            interval: ``"D"`` (daily), ``"W"``, ``"M"``, etc.
+            codes: 证券代码列表，
+                如 ``["300033.SZ"]``.
+            indicators: 指标名称列表，
+                如 ``["open", "close", "volume"]``.
+            startdate: 起始日期，如 ``"2026-05-26"``.
+            enddate: 结束日期，如 ``"2026-06-02"``.
+            interval: ``"D"``（日）、``"W"``、``"M"`` 等.
 
         Returns:
-            Raw API response dict keyed by ``tables``.
+            以 ``tables`` 为键的原始 API 响应字典.
         """
         data = {
             "codes": ",".join(codes),
@@ -350,7 +351,7 @@ class IfindClient:
         )
 
     # ------------------------------------------------------------------
-    # Trade dates
+    # 交易日历
     # ------------------------------------------------------------------
 
     def get_trade_dates(
@@ -359,15 +360,16 @@ class IfindClient:
         enddate: str,
         marketcode: str = "212001",
     ) -> list[str]:
-        """Fetch trade dates for a given market.
+        """获取指定市场的交易日列表.
 
         Args:
-            startdate: Start date, e.g. ``"2026-06-01"``.
-            enddate: End date, e.g. ``"2026-06-03"``.
-            marketcode: Exchange code (default ``"212001"`` SSE).
+            startdate: 起始日期，如 ``"2026-06-01"``.
+            enddate: 结束日期，如 ``"2026-06-03"``.
+            marketcode: 交易所代码
+                （默认 ``"212001"`` 上交所）.
 
         Returns:
-            List of date strings in ``"YYYY-MM-DD"`` format.
+            ``"YYYY-MM-DD"`` 格式的日期字符串列表.
         """
         data = {
             "marketcode": marketcode,
@@ -386,21 +388,21 @@ class IfindClient:
         return self._extract_date_list(body)
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # 内部辅助方法
     # ------------------------------------------------------------------
 
     @staticmethod
     def _extract_table_rows(body: dict) -> list[dict]:
-        """Extract rows from a data_pool / quotation response.
+        """从 data_pool / 行情响应中提取行数据.
 
-        The API wraps results inside ``tables[0]["table"]``
-        as a list of dicts (field -> value).
+        API 将结果封装在 ``tables[0]["table"]`` 中，
+        格式为字典列表（字段 -> 值）.
 
         Args:
-            body: Full API response dict.
+            body: 完整的 API 响应字典.
 
         Returns:
-            List of row dicts, or an empty list if no data.
+            行字典列表，若无数据则返回空列表.
         """
         tables = body.get("tables", [])
         if not tables:
@@ -411,13 +413,13 @@ class IfindClient:
 
     @staticmethod
     def _extract_date_list(body: dict) -> list[str]:
-        """Extract date strings from a get_trade_dates response.
+        """从 get_trade_dates 响应中提取日期字符串.
 
         Args:
-            body: Full API response dict.
+            body: 完整的 API 响应字典.
 
         Returns:
-            List of date strings.
+            日期字符串列表.
         """
         tables = body.get("tables", [])
         if not tables:
@@ -426,7 +428,7 @@ class IfindClient:
         rows = table.get("table_data", [])
         if not rows:
             return []
-        # Each row is a dict with a date field; the key varies.
+        # 每行是一个包含日期字段的字典，键名不固定
         dates: list[str] = []
         for row in rows:
             for val in row.values():

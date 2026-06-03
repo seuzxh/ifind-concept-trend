@@ -1,8 +1,7 @@
-"""Data models for concept boards and stocks.
+"""概念板块和个股数据模型.
 
-Defines dataclasses for structured representation of concept
-popularity, board constituent stocks, intraday K-line bars,
-and daily K-line data returned by the ifind API.
+定义用于结构化表示概念人气、板块成分股、
+分钟 K 线及日 K 线数据的数据类。
 """
 
 from dataclasses import dataclass
@@ -35,7 +34,7 @@ class BoardStock:
         trade_date: 交易日期 (p03798_f001).
         change_ratio: 涨跌幅 (p03798_f012).
         period_start: 统计周期起始 (p03798_f016).
-        concept_name: 所属概念名称 (from request param).
+        concept_name: 所属概念名称（来自请求参数）.
     """
 
     stock_code: str
@@ -48,7 +47,7 @@ class BoardStock:
 
 @dataclass
 class KlineBar:
-    """K线单根数据 (1min bar).
+    """K 线单根数据（1分钟 bar）.
 
     Attributes:
         stock_code: 证券代码.
@@ -60,7 +59,7 @@ class KlineBar:
         close: 收盘价.
         volume: 成交量.
         amount: 成交额.
-        change_ratio: 涨跌幅, 可能为 None.
+        change_ratio: 涨跌幅，可能为 None.
     """
 
     stock_code: str
@@ -77,7 +76,7 @@ class KlineBar:
 
 @dataclass
 class DailyKline:
-    """日K线数据.
+    """日 K 线数据.
 
     Attributes:
         stock_code: 证券代码.

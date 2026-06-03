@@ -9,24 +9,24 @@
   - [ ] 0.6 验证 get_trade_dates 接口（交易日判断）
   - [ ] 0.7 整理验证结果，确认每个接口的返回数据格式
 
-- [ ] Task 1: 项目基础结构搭建
-  - [ ] 1.1 创建项目目录结构（scanner 包、config、tests）
-  - [ ] 1.2 创建 requirements.txt（requests, apscheduler, pyyaml 等依赖）
-  - [ ] 1.3 创建配置文件模板（config.yaml：API 地址、refresh_token、阈值参数、webhook URL）
+- [x] Task 1: 项目基础结构搭建
+  - [x] 1.1 创建项目目录结构（scanner 包、config、tests）
+  - [x] 1.2 创建 requirements.txt（requests, apscheduler, pyyaml 等依赖）
+  - [x] 1.3 创建配置文件模板（config.yaml：API 地址、refresh_token、阈值参数、webhook URL）
 
-- [ ] Task 2: ifind API 数据采集模块
-  - [ ] 2.1 封装 ifind HTTP 客户端（Token 管理、鉴权、请求重试、错误处理）
-  - [ ] 2.2 实现概念人气明细接口（data_pool p03797：自选热度、自选热度变化率）
-  - [ ] 2.3 实现板块热门成分股接口（data_pool p03798：交易代码、涨跌幅）
-  - [ ] 2.4 实现历史日K线接口（cmd_history_quotation：近5日OHLCV，获取昨收价）
-  - [ ] 2.5 实现开盘 5 分钟 K 线接口（high_frequency：OHLCV + changeRatio + LB 量比）
-  - [ ] 2.6 实现交易日判断接口（get_trade_dates）
+- [x] Task 2: ifind API 数据采集模块
+  - [x] 2.1 封装 ifind HTTP 客户端（Token 管理、鉴权、请求重试、错误处理）
+  - [x] 2.2 实现概念人气明细接口（data_pool p03797：自选热度、自选热度变化率）
+  - [x] 2.3 实现板块热门成分股接口（data_pool p03798：交易代码、涨跌幅）
+  - [x] 2.4 实现历史日K线接口（cmd_history_quotation：近5日OHLCV，获取昨收价）
+  - [x] 2.5 实现开盘 5 分钟 K 线接口（high_frequency：OHLCV + changeRatio + LB 量比）
+  - [x] 2.6 实现交易日判断接口（get_trade_dates）
   - [ ] 2.7 编写接口调用单元测试（基于 Task 0 验证结果 mock 数据）
 
-- [ ] Task 3: SQLite 数据存储模块
-  - [ ] 3.1 设计并创建数据库表结构（详见 SQLite 设计文档，含 kline_daily 表）
-  - [ ] 3.2 实现数据写入和查询接口
-  - [ ] 3.3 实现每日数据同步逻辑（人气数据每日同步，含非交易日）
+- [x] Task 3: SQLite 数据存储模块
+  - [x] 3.1 设计并创建数据库表结构（详见 SQLite 设计文档，含 kline_daily 表）
+  - [x] 3.2 实现数据写入和查询接口
+  - [x] 3.3 实现每日数据同步逻辑（人气数据每日同步，含非交易日）
 
 - [ ] Task 4: 多因子综合评分引擎
   - [ ] 4.1 实现昨收价获取（从 cmd_history_quotation 日K线的 T-1 日 close）

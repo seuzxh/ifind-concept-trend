@@ -1,8 +1,8 @@
-"""Database layer for persisting scan results to SQLite.
+"""概念板块强势扫描系统的 SQLite 数据库持久化层.
 
-Provides the ``Database`` class that manages all SQLite operations
-including table creation, upserts, and queries for concept
-popularity, board-stock relations, K-line data, and scan results.
+提供 ``Database`` 类，管理全部 SQLite 操作，包括
+表创建、upsert 及查询概念人气、板块-个股关系、
+K 线数据和扫描结果。
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from scanner.models import (
 logger = logging.getLogger(__name__)
 
 _DDL_STATEMENTS = [
-    # 1. concept_popularity
+    # 1. 概念人气表
     """CREATE TABLE IF NOT EXISTS concept_popularity (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         trade_date TEXT NOT NULL,
@@ -39,7 +39,7 @@ _DDL_STATEMENTS = [
         ON concept_popularity(
             trade_date, concept_name, stat_period
         )""",
-    # 2. board_stock_relation
+    # 2. 板块-个股关系表
     """CREATE TABLE IF NOT EXISTS board_stock_relation (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         trade_date TEXT NOT NULL,
@@ -62,7 +62,7 @@ _DDL_STATEMENTS = [
             trade_date, concept_name,
             stock_code, stat_period
         )""",
-    # 3. kline_daily
+    # 3. 日 K 线表
     """CREATE TABLE IF NOT EXISTS kline_daily (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         stock_code TEXT NOT NULL,
@@ -79,7 +79,7 @@ _DDL_STATEMENTS = [
         ON kline_daily(stock_code, trade_date)""",
     """CREATE UNIQUE INDEX IF NOT EXISTS uq_kd_unique
         ON kline_daily(stock_code, trade_date)""",
-    # 4. kline_1min
+    # 4. 1 分钟 K 线表
     """CREATE TABLE IF NOT EXISTS kline_1min (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         stock_code TEXT NOT NULL,
@@ -98,7 +98,7 @@ _DDL_STATEMENTS = [
         ON kline_1min(stock_code, trade_date)""",
     """CREATE UNIQUE INDEX IF NOT EXISTS uq_k1m_bar
         ON kline_1min(stock_code, trade_date, bar_time)""",
-    # 5. stock_daily_scan
+    # 5. 个股每日扫描结果表
     """CREATE TABLE IF NOT EXISTS stock_daily_scan (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         trade_date TEXT NOT NULL,
@@ -123,7 +123,7 @@ _DDL_STATEMENTS = [
         ON stock_daily_scan(trade_date, score DESC)""",
     """CREATE UNIQUE INDEX IF NOT EXISTS uq_sds_unique
         ON stock_daily_scan(trade_date, stock_code)""",
-    # 6. board_daily_scan
+    # 6. 板块每日扫描结果表
     """CREATE TABLE IF NOT EXISTS board_daily_scan (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         trade_date TEXT NOT NULL,
@@ -145,30 +145,29 @@ _DDL_STATEMENTS = [
 
 
 class Database:
-    """SQLite database manager for concept-trend-scanner.
+    """概念板块强势扫描系统的 SQLite 数据库管理器.
 
-    Manages table creation, connection lifecycle, and all
-    CRUD operations for the six application tables.
+    管理表创建、连接生命周期以及六张应用表的全部
+    增删改查操作.
 
     Attributes:
-        db_path: Filesystem path to the SQLite database file.
+        db_path: SQLite 数据库文件的文件系统路径.
     """
 
     def __init__(self, db_path: Path) -> None:
-        """Initialise the database manager.
+        """初始化数据库管理器.
 
-        Creates the parent directory of *db_path* if it does not
-        already exist.
+        若 *db_path* 的父目录不存在则自动创建.
 
         Args:
-            db_path: Path to the SQLite database file.
+            db_path: SQLite 数据库文件路径.
         """
         self.db_path = db_path
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn: sqlite3.Connection | None = None
 
     def init_db(self) -> None:
-        """Create all tables and indexes if they do not exist."""
+        """若表和索引不存在则创建."""
         conn = self._get_conn()
         for stmt in _DDL_STATEMENTS:
             conn.execute(stmt)
@@ -176,15 +175,15 @@ class Database:
         logger.info("Database schema initialised.")
 
     # ------------------------------------------------------------------
-    # Connection management
+    # 连接管理
     # ------------------------------------------------------------------
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Return the current connection, creating one if needed.
+        """返回当前连接，若不存在则创建.
 
         Returns:
-            A ``sqlite3.Connection`` with ``row_factory`` set to
-            ``sqlite3.Row``.
+            设置了 ``row_factory = sqlite3.Row`` 的
+            ``sqlite3.Connection`` 实例.
         """
         if self._conn is None:
             self._conn = sqlite3.connect(str(self.db_path))
@@ -192,13 +191,13 @@ class Database:
         return self._conn
 
     def close(self) -> None:
-        """Close the database connection if it is open."""
+        """若数据库连接处于打开状态则关闭."""
         if self._conn is not None:
             self._conn.close()
             self._conn = None
 
     # ------------------------------------------------------------------
-    # Concept popularity (p03797)
+    # 概念人气（p03797）
     # ------------------------------------------------------------------
 
     def upsert_concept_popularity(
@@ -206,15 +205,14 @@ class Database:
         records: list[ConceptPopularity],
         stat_period: str = "近一周",
     ) -> int:
-        """Insert or replace concept popularity records.
+        """插入或替换概念人气记录.
 
         Args:
-            records: List of ``ConceptPopularity`` dataclass
-                instances.
-            stat_period: Statistical period label.
+            records: ``ConceptPopularity`` 数据类实例列表.
+            stat_period: 统计周期标签.
 
         Returns:
-            Number of rows upserted.
+            插入或替换的行数.
         """
         if not records:
             return 0
@@ -246,14 +244,14 @@ class Database:
         trade_date: str,
         limit: int = 20,
     ) -> list[dict]:
-        """Return the top concepts by popularity for a date.
+        """返回指定日期按人气值排名前 N 的概念.
 
         Args:
-            trade_date: Trading date string.
-            limit: Maximum number of results.
+            trade_date: 交易日期字符串.
+            limit: 最大返回条数.
 
         Returns:
-            List of dicts with keys matching column names.
+            键名与列名对应的字典列表.
         """
         conn = self._get_conn()
         cursor = conn.execute(
@@ -268,7 +266,7 @@ class Database:
         return [dict(row) for row in cursor.fetchall()]
 
     # ------------------------------------------------------------------
-    # Board-stock relation (p03798)
+    # 板块-个股关系（p03798）
     # ------------------------------------------------------------------
 
     def upsert_board_stocks(
@@ -276,14 +274,14 @@ class Database:
         records: list[BoardStock],
         stat_period: str = "近一周",
     ) -> int:
-        """Insert or replace board-stock relation records.
+        """插入或替换板块-个股关系记录.
 
         Args:
-            records: List of ``BoardStock`` dataclass instances.
-            stat_period: Statistical period label.
+            records: ``BoardStock`` 数据类实例列表.
+            stat_period: 统计周期标签.
 
         Returns:
-            Number of rows upserted.
+            插入或替换的行数.
         """
         if not records:
             return 0
@@ -317,14 +315,16 @@ class Database:
         self,
         trade_date: str,
     ) -> list[tuple[str, str]]:
-        """Return unique (stock_code, stock_name) from the latest
-        board_stock_relation data on or before *trade_date*.
+        """返回截至指定日期最新的板块成分股去重列表.
+
+        查询 board_stock_relation 中 *trade_date* 当天或
+        之前最近一个交易日的去重 (stock_code, stock_name).
 
         Args:
-            trade_date: Reference trading date.
+            trade_date: 参考交易日期.
 
         Returns:
-            List of (stock_code, stock_name) tuples.
+            (stock_code, stock_name) 元组列表.
         """
         conn = self._get_conn()
         cursor = conn.execute(
@@ -344,20 +344,20 @@ class Database:
         ]
 
     # ------------------------------------------------------------------
-    # Daily K-line
+    # 日 K 线
     # ------------------------------------------------------------------
 
     def upsert_daily_klines(
         self,
         records: list[DailyKline],
     ) -> int:
-        """Insert or replace daily K-line records.
+        """插入或替换日 K 线记录.
 
         Args:
-            records: List of ``DailyKline`` dataclass instances.
+            records: ``DailyKline`` 数据类实例列表.
 
         Returns:
-            Number of rows upserted.
+            插入或替换的行数.
         """
         if not records:
             return 0
@@ -392,22 +392,22 @@ class Database:
         stock_codes: list[str],
         before_date: str,
     ) -> dict[str, float]:
-        """Return the most recent close price before a date.
+        """返回指定股票在某个日期之前最近一日的收盘价.
 
-        For each stock in *stock_codes*, looks up the close price
-        on the most recent trading day strictly before
-        *before_date*.
+        对 *stock_codes* 中的每只股票，查询严格早于
+        *before_date* 的最近一个交易日的收盘价.
 
         Args:
-            stock_codes: List of stock code strings.
-            before_date: Cutoff date (exclusive).
+            stock_codes: 证券代码字符串列表.
+            before_date: 截止日期（不含）.
 
         Returns:
-            Dict mapping stock_code to close price.
+            证券代码 -> 收盘价的映射字典.
         """
         if not stock_codes:
             return {}
         conn = self._get_conn()
+        # 动态构建占位符列表
         placeholders = ",".join("?" for _ in stock_codes)
         cursor = conn.execute(
             f"""SELECT stock_code, close
@@ -426,20 +426,20 @@ class Database:
         }
 
     # ------------------------------------------------------------------
-    # 1-min K-line
+    # 1 分钟 K 线
     # ------------------------------------------------------------------
 
     def upsert_kline_1min(
         self,
         records: list[KlineBar],
     ) -> int:
-        """Insert or replace 1-minute K-line records.
+        """插入或替换 1 分钟 K 线记录.
 
         Args:
-            records: List of ``KlineBar`` dataclass instances.
+            records: ``KlineBar`` 数据类实例列表.
 
         Returns:
-            Number of rows upserted.
+            插入或替换的行数.
         """
         if not records:
             return 0
@@ -473,7 +473,7 @@ class Database:
         return count
 
     # ------------------------------------------------------------------
-    # Scan results — stocks
+    # 扫描结果 — 个股
     # ------------------------------------------------------------------
 
     def save_stock_scan_results(
@@ -481,16 +481,16 @@ class Database:
         trade_date: str,
         results: list[dict],
     ) -> int:
-        """Insert or replace daily stock scan results.
+        """插入或替换每日个股扫描结果.
 
         Args:
-            trade_date: Trading date string.
-            results: List of dicts with keys matching
-                ``stock_daily_scan`` columns (minus ``id``,
-                ``trade_date``, ``created_at``).
+            trade_date: 交易日期字符串.
+            results: 字典列表，键名对应 ``stock_daily_scan``
+                表列（不含 ``id``、``trade_date``、
+                ``created_at``）.
 
         Returns:
-            Number of rows upserted.
+            插入或替换的行数.
         """
         if not results:
             return 0
@@ -537,14 +537,14 @@ class Database:
         trade_date: str,
         limit: int = 10,
     ) -> list[dict]:
-        """Return the top-scoring stocks for a date.
+        """返回指定日期评分最高的个股.
 
         Args:
-            trade_date: Trading date string.
-            limit: Maximum number of results.
+            trade_date: 交易日期字符串.
+            limit: 最大返回条数.
 
         Returns:
-            List of dicts with keys matching column names.
+            键名与列名对应的字典列表.
         """
         conn = self._get_conn()
         cursor = conn.execute(
@@ -563,7 +563,7 @@ class Database:
         return [dict(row) for row in cursor.fetchall()]
 
     # ------------------------------------------------------------------
-    # Scan results — boards
+    # 扫描结果 — 板块
     # ------------------------------------------------------------------
 
     def save_board_scan_results(
@@ -571,16 +571,16 @@ class Database:
         trade_date: str,
         results: list[dict],
     ) -> int:
-        """Insert or replace daily board scan results.
+        """插入或替换每日板块扫描结果.
 
         Args:
-            trade_date: Trading date string.
-            results: List of dicts with keys matching
-                ``board_daily_scan`` columns (minus ``id``,
-                ``trade_date``, ``created_at``).
+            trade_date: 交易日期字符串.
+            results: 字典列表，键名对应 ``board_daily_scan``
+                表列（不含 ``id``、``trade_date``、
+                ``created_at``）。
 
         Returns:
-            Number of rows upserted.
+            插入或替换的行数.
         """
         if not results:
             return 0
@@ -616,14 +616,14 @@ class Database:
         trade_date: str,
         limit: int = 5,
     ) -> list[dict]:
-        """Return the top-scoring boards for a date.
+        """返回指定日期评分最高的板块.
 
         Args:
-            trade_date: Trading date string.
-            limit: Maximum number of results.
+            trade_date: 交易日期字符串.
+            limit: 最大返回条数.
 
         Returns:
-            List of dicts with keys matching column names.
+            键名与列名对应的字典列表.
         """
         conn = self._get_conn()
         cursor = conn.execute(

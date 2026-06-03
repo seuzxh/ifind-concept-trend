@@ -1,10 +1,10 @@
-"""CLI entry point for the concept-trend-scanner package."""
+"""概念板块强势扫描系统的命令行入口."""
 
 __version__ = "0.1.0"
 
 
 def main() -> None:
-    """Print the scanner version and exit."""
+    """打印扫描器版本号并退出."""
     print(f"concept-trend-scanner v{__version__}")
 
 

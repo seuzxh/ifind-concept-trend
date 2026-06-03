@@ -1,8 +1,8 @@
-"""Configuration loader for the concept-trend-scanner.
+"""概念板块强势扫描系统配置加载模块.
 
-Reads settings from config.yaml in the project root and merges
-the ifind refresh token from the IFIND_REFRESH_TOKEN environment
-variable.  Use ``get_config()`` to obtain the singleton instance.
+从项目根目录的 config.yaml 读取配置，并从环境变量
+IFIND_REFRESH_TOKEN 获取 ifind 鉴权令牌。
+通过 ``get_config()`` 获取全局单例配置实例。
 """
 
 import os
@@ -12,24 +12,24 @@ import yaml
 
 
 class Config:
-    """Application configuration backed by config.yaml + env vars.
+    """基于 config.yaml 和环境变量的应用配置.
 
     Attributes:
-        ifind_base_url: Base URL of the ifind Quant API.
-        ifind_refresh_token: Token read from the IFIND_REFRESH_TOKEN
-            environment variable.
-        scoring: Scoring weight parameters.
-        board_scoring: Board-level scoring parameters.
-        scheduler: Scheduler timing parameters.
-        database: Database path configuration.
-        webhook: Webhook URL configuration.
+        ifind_base_url: ifind 量化 API 基础地址.
+        ifind_refresh_token: 从环境变量 IFIND_REFRESH_TOKEN
+            读取的鉴权令牌.
+        scoring: 评分权重参数.
+        board_scoring: 板块级评分参数.
+        scheduler: 调度器时间参数.
+        database: 数据库路径配置.
+        webhook: Webhook 地址配置.
     """
 
     def __init__(self, data: dict) -> None:
-        """Initialise configuration from a parsed YAML mapping.
+        """从解析后的 YAML 字典初始化配置.
 
         Args:
-            data: Parsed config.yaml contents.
+            data: config.yaml 解析后的字典.
         """
         ifind = data.get("ifind", {})
         self.ifind_base_url: str = ifind.get(
@@ -47,7 +47,7 @@ class Config:
 
     @property
     def db_path(self) -> Path:
-        """Return the resolved database file path."""
+        """返回解析后的数据库文件路径."""
         raw: str = self.database.get("path", "data/scanner.db")
         return Path(raw)
 
@@ -56,17 +56,17 @@ _config: Config | None = None
 
 
 def get_config(config_path: str | None = None) -> Config:
-    """Return the singleton Config instance.
+    """返回全局单例 Config 实例.
 
-    On the first call the YAML file is read and parsed.  Subsequent
-    calls return the cached instance regardless of *config_path*.
+    首次调用时读取并解析 YAML 文件，后续调用直接返回
+    缓存实例，忽略 *config_path* 参数。
 
     Args:
-        config_path: Optional path to config.yaml.  Defaults to
-            ``config/config.yaml`` relative to the project root.
+        config_path: 可选的 config.yaml 路径，默认为项目
+            根目录下的 ``config/config.yaml``.
 
     Returns:
-        The global Config instance.
+        全局 Config 实例.
     """
     global _config
     if _config is not None:
