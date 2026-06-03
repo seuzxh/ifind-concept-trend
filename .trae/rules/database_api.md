@@ -8,12 +8,12 @@
 
 ## 概览
 
-本系统使用 SQLite 存储概念板块强势扫描的全部数据，共 6 张表，分为 3 层：
+本系统使用 SQLite 存储行业板块强势扫描的全部数据，共 6 张表，分为 3 层：
 
 | 层级 | 表名 | 用途 |
 |------|------|------|
-| 原始数据层 | concept_popularity | 概念板块人气数据（来自 ifind p03797） |
-| 原始数据层 | board_stock_relation | 板块-个股关联关系（来自 ifind p03798） |
+| 原始数据层 | concept_popularity | 行业人气数据（来自 ifind p03793） |
+| 原始数据层 | board_stock_relation | 行业-个股关联关系（来自 ifind p03794） |
 | 原始数据层 | kline_daily | 日K线数据（来自 ifind cmd_history_quotation） |
 | 原始数据层 | kline_1min | 1分钟K线数据（来自 ifind high_frequency） |
 | 计算结果层 | stock_daily_scan | 个股每日扫描评分结果 |
@@ -41,20 +41,20 @@ db.init_db()  # 创建表和索引（幂等操作）
 
 ### upsert_concept_popularity(records, stat_period="近一周") -> int
 
-写入概念人气数据。
+写入行业人气数据。
 
-- **数据来源**：ifind p03797 接口
+- **数据来源**：ifind p03793 接口
 - **写入时机**：每日同步（含非交易日），盘中 9:35 前完成
 - **唯一键**：(trade_date, concept_name, stat_period)
 - **参数 records**：`list[ConceptPopularity]`，字段包括 trade_date, concept_name, popularity, popularity_change_rate
-- **筛选逻辑**：先写入全部概念数据，再通过 `get_hot_concepts` 按人气 Top20 + 变化率 Top20 去重筛选出约 40 个热门板块
+- **筛选逻辑**：先写入全部行业数据，再通过 `get_hot_concepts` 按人气 Top20 + 变化率 Top20 去重筛选出约 37 个热门行业
 
 ### upsert_board_stocks(records, stat_period="近一周") -> int
 
 写入板块-个股关联关系。
 
-- **数据来源**：ifind p03798 接口（仅热门板块）
-- **写入时机**：每日同步，紧跟概念人气数据之后
+- **数据来源**：ifind p03794 接口（仅热门行业）
+- **写入时机**：每日同步，紧跟行业人气数据之后
 - **唯一键**：(trade_date, concept_name, stock_code, stat_period)
 - **参数 records**：`list[BoardStock]`，字段包括 trade_date, concept_name, stock_code, stock_name, period_start_date, change_ratio
 - **筛选逻辑**：每个板块按涨跌幅降序取 Top30，剔除 ST 股
@@ -106,7 +106,7 @@ db.init_db()  # 创建表和索引（幂等操作）
 
 ### get_hot_concepts(trade_date, limit=20) -> list[dict]
 
-获取指定日期人气最高的概念板块列表，按 popularity 降序。
+获取指定日期人气最高的行业板块列表，按 popularity 降序。
 
 返回：[{concept_name, popularity, popularity_change_rate}, ...]
 
@@ -140,8 +140,8 @@ db.init_db()  # 创建表和索引（幂等操作）
 
 ```
 每日同步（含非交易日）
-  1. p03797 → upsert_concept_popularity() → get_hot_concepts() 筛选 ~40 板块
-  2. p03798 ×40 → upsert_board_stocks() → 每板块 Top30 剔除 ST → ~500 股观察池
+  1. p03793 → upsert_concept_popularity() → get_hot_concepts() 筛选 ~37 行业
+  2. p03794 ×37 → upsert_board_stocks() → 每行业 Top30 剔除 ST → ~800 股观察池
 
 交易日盘中 9:36
   3. cmd_history_quotation → upsert_daily_klines() → 近 5 日日K
@@ -162,8 +162,8 @@ db.init_db()  # 创建表和索引（幂等操作）
 
 | 表 | 预查 SQL | 说明 |
 |----|---------|------|
-| concept_popularity | `SELECT COUNT(*) FROM concept_popularity WHERE trade_date = ?` | count > 0 则跳过当日 p03797 下载 |
-| board_stock_relation | `SELECT COUNT(*) FROM board_stock_relation WHERE trade_date = ?` | count > 0 则跳过当日 p03798 下载 |
+| concept_popularity | `SELECT COUNT(*) FROM concept_popularity WHERE trade_date = ?` | count > 0 则跳过当日 p03793 下载 |
+| board_stock_relation | `SELECT COUNT(*) FROM board_stock_relation WHERE trade_date = ?` | count > 0 则跳过当日 p03794 下载 |
 | kline_daily | `SELECT COUNT(*) FROM kline_daily WHERE trade_date = ? AND stock_code IN (...)` | 按日期+股票列表批量预查，已有记录的跳过 |
 | kline_1min | `SELECT COUNT(*) FROM kline_1min WHERE trade_date = ? AND stock_code = ?` | 按日期+单只股票预查，5 条（09:30~09:35）齐全则跳过 |
 | stock_daily_scan | 由评分引擎写入，不涉及外部下载 | — |

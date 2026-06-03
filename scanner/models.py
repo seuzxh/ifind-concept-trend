@@ -1,6 +1,6 @@
-"""概念板块和个股数据模型.
+"""行业板块和个股数据模型.
 
-定义用于结构化表示概念人气、板块成分股、
+定义用于结构化表示行业人气、行业成分股、
 分钟 K 线及日 K 线数据的数据类。
 """
 
@@ -9,10 +9,10 @@ from dataclasses import dataclass
 
 @dataclass
 class ConceptPopularity:
-    """概念人气明细.
+    """行业人气明细.
 
     Attributes:
-        concept_name: 概念板块名称 (p03797_f001).
+        concept_name: 行业名称 (p03793_f001).
         trade_date: 交易日期 (p03797_f002).
         popularity: 人气值 (p03797_f009).
         popularity_change_rate: 人气变化率 (p03797_f010).
@@ -34,7 +34,7 @@ class BoardStock:
         trade_date: 交易日期 (p03798_f001).
         change_ratio: 涨跌幅 (p03798_f012).
         period_start: 统计周期起始 (p03798_f016).
-        concept_name: 所属概念名称（来自请求参数）.
+        concept_name: 所属行业名称（来自请求参数）.
     """
 
     stock_code: str

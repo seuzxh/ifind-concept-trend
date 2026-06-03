@@ -1,7 +1,7 @@
-"""概念板块强势扫描系统的 SQLite 数据库持久化层.
+"""行业板块强势扫描系统的 SQLite 数据库持久化层.
 
 提供 ``Database`` 类，管理全部 SQLite 操作，包括
-表创建、upsert 及查询概念人气、板块-个股关系、
+表创建、upsert 及查询行业人气、行业-个股关系、
 K 线数据和扫描结果。
 """
 
@@ -21,7 +21,7 @@ from scanner.models import (
 logger = logging.getLogger(__name__)
 
 _DDL_STATEMENTS = [
-    # 1. 概念人气表
+    # 1. 行业人气表
     """CREATE TABLE IF NOT EXISTS concept_popularity (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         trade_date TEXT NOT NULL,
@@ -39,7 +39,7 @@ _DDL_STATEMENTS = [
         ON concept_popularity(
             trade_date, concept_name, stat_period
         )""",
-    # 2. 板块-个股关系表
+    # 2. 行业-个股关系表
     """CREATE TABLE IF NOT EXISTS board_stock_relation (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         trade_date TEXT NOT NULL,
@@ -145,7 +145,7 @@ _DDL_STATEMENTS = [
 
 
 class Database:
-    """概念板块强势扫描系统的 SQLite 数据库管理器.
+    """行业板块强势扫描系统的 SQLite 数据库管理器.
 
     管理表创建、连接生命周期以及六张应用表的全部
     增删改查操作.
@@ -197,7 +197,7 @@ class Database:
             self._conn = None
 
     # ------------------------------------------------------------------
-    # 概念人气（p03797）
+    # 行业人气（p03793）
     # ------------------------------------------------------------------
 
     def upsert_concept_popularity(
@@ -205,7 +205,7 @@ class Database:
         records: list[ConceptPopularity],
         stat_period: str = "近一周",
     ) -> int:
-        """插入或替换概念人气记录.
+        """插入或替换行业人气记录.
 
         Args:
             records: ``ConceptPopularity`` 数据类实例列表.
@@ -266,7 +266,7 @@ class Database:
         return [dict(row) for row in cursor.fetchall()]
 
     # ------------------------------------------------------------------
-    # 板块-个股关系（p03798）
+    # 行业-个股关系（p03794）
     # ------------------------------------------------------------------
 
     def upsert_board_stocks(
@@ -274,7 +274,7 @@ class Database:
         records: list[BoardStock],
         stat_period: str = "近一周",
     ) -> int:
-        """插入或替换板块-个股关系记录.
+        """插入或替换行业-个股关系记录.
 
         Args:
             records: ``BoardStock`` 数据类实例列表.
@@ -551,6 +551,68 @@ class Database:
             concept = row["concept_name"]
             result.setdefault(code, []).append(concept)
         return result
+
+    # ------------------------------------------------------------------
+    # 数据预查（避免重复下载）
+    # ------------------------------------------------------------------
+
+    def find_stocks_with_daily(
+        self,
+        trade_date: str,
+        stock_codes: list[str],
+    ) -> set[str]:
+        """返回在指定日期已有日K线数据的股票代码集合.
+
+        Args:
+            trade_date: 交易日期字符串.
+            stock_codes: 待检查的证券代码列表.
+
+        Returns:
+            已有数据的股票代码集合.
+        """
+        if not stock_codes:
+            return set()
+        conn = self._get_conn()
+        placeholders = ",".join("?" for _ in stock_codes)
+        cursor = conn.execute(
+            f"""SELECT DISTINCT stock_code
+                FROM kline_daily
+                WHERE trade_date = ?
+                  AND stock_code IN ({placeholders})""",
+            (trade_date, *stock_codes),
+        )
+        return {row["stock_code"] for row in cursor}
+
+    def find_stocks_with_1min(
+        self,
+        trade_date: str,
+        stock_codes: list[str],
+        min_bars: int = 5,
+    ) -> set[str]:
+        """返回在指定日期已有足够 1min K 线数据的股票代码集合.
+
+        Args:
+            trade_date: 交易日期字符串.
+            stock_codes: 待检查的证券代码列表.
+            min_bars: 最少需要的 K 线条数.
+
+        Returns:
+            已有足够数据的股票代码集合.
+        """
+        if not stock_codes:
+            return set()
+        conn = self._get_conn()
+        placeholders = ",".join("?" for _ in stock_codes)
+        cursor = conn.execute(
+            f"""SELECT stock_code
+                FROM kline_1min
+                WHERE trade_date = ?
+                  AND stock_code IN ({placeholders})
+                GROUP BY stock_code
+                HAVING COUNT(*) >= ?""",
+            (trade_date, *stock_codes, min_bars),
+        )
+        return {row["stock_code"] for row in cursor}
 
     # ------------------------------------------------------------------
     # 扫描结果 — 个股
