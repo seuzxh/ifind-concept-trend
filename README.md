@@ -112,7 +112,7 @@ python -m scanner sync
 | stock_daily_scan | 个股扫描结果 | 交易日盘中 |
 | board_daily_scan | 板块扫描结果 | 交易日盘中 |
 
-详细设计见 [sqlite数据库设计.md](sqlite数据库设计.md)。
+详细设计见 [sqlite数据库设计.md](Docs/sqlite数据库设计.md)。
 
 ## 文档索引
 
