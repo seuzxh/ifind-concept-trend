@@ -285,6 +285,7 @@ class IfindClient:
         starttime: str,
         endtime: str,
         interval: str = "1",
+        calculate: dict | None = None,
     ) -> dict:
         """获取日内高频 K 线数据.
 
@@ -292,25 +293,31 @@ class IfindClient:
             codes: 证券代码列表，
                 如 ``["300033.SZ", "600030.SH"]``.
             indicators: 指标名称列表，
-                如 ``["open", "close"]``.
+                如 ``["open", "close", "LB"]``.
             starttime: 起始时间，
                 如 ``"2026-06-02 09:30:00"``.
             endtime: 结束时间，
                 如 ``"2026-06-02 09:35:00"``.
             interval: K 线周期（默认 ``"1"`` 即1分钟）.
+            calculate: 技术指标计算参数，如
+                ``{"LB": "5"}`` 表示5日量比.
 
         Returns:
             以 ``tables`` 为键的原始 API 响应字典.
         """
+        functionpara: dict = {
+            "Fill": "Original",
+            "Interval": interval,
+        }
+        if calculate:
+            functionpara["calculate"] = calculate
+
         data = {
             "codes": ",".join(codes),
             "indicators": ",".join(indicators),
             "starttime": starttime,
             "endtime": endtime,
-            "functionpara": {
-                "Fill": "Original",
-                "Interval": interval,
-            },
+            "functionpara": functionpara,
         }
         return self._request(
             "/api/v1/high_frequency", data
