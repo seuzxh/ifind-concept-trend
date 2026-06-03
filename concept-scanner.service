@@ -1,0 +1,15 @@
+[Unit]
+Description=概念板块强势扫描定时服务
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/Projects/ifind-concept-trend
+ExecStart=/root/Projects/5.test-autoresearch/qlib/miniconda3/envs/concept-trend/bin/python -m scanner serve
+Restart=on-failure
+RestartSec=30
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

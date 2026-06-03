@@ -1,7 +1,7 @@
-"""企业微信 Webhook 推送模块.
+"""飞书 Webhook 推送模块.
 
 提供 ``Notifier`` 类，将扫描结果格式化为 Markdown
-报告并通过企业微信群机器人 Webhook 推送。报告采用
+报告并通过飞书群机器人 Webhook 推送。报告采用
 两段式结构：Top 10 个股归类 + Top 5 板块详情。
 """
 
@@ -15,12 +15,12 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# 企业微信 Markdown 消息字节上限.
-_MAX_BYTES = 4096
+# 飞书消息体大小上限 20KB.
+_MAX_BYTES = 20480
 
 
 class Notifier:
-    """企业微信 Webhook 推送器.
+    """飞书 Webhook 推送器.
 
     Attributes:
         webhook_url: Webhook 地址.
@@ -30,7 +30,7 @@ class Notifier:
         """初始化推送器.
 
         Args:
-            webhook_url: 企业微信群机器人 Webhook URL.
+            webhook_url: 飞书群机器人 Webhook URL.
         """
         self.webhook_url = webhook_url
 
@@ -83,8 +83,8 @@ class Notifier:
                     {
                         "tag": "markdown",
                         "content": content,
-                    }
-                ]
+                    },
+                ],
             },
         }
 
@@ -96,11 +96,12 @@ class Notifier:
             )
             resp.raise_for_status()
             data = resp.json()
-            code = data.get("code", data.get("errcode", 0))
+            code = data.get("code", 0)
             if code != 0:
                 logger.error(
-                    "Webhook returned error: %s",
-                    data.get("msg", data.get("errmsg", "unknown")),
+                    "Feishu webhook returned error: "
+                    "code=%s, msg=%s",
+                    code, data.get("msg", "unknown"),
                 )
                 return False
             logger.info(

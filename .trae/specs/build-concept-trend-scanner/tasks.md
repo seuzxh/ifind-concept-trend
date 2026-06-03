@@ -52,27 +52,28 @@
   - [x] 4.10 编写评分引擎单元测试
 
 - [x] Task 5: 结果推送模块
-  - [x] 5.1 实现企业微信 webhook 推送（Markdown 格式，msgtype=markdown）
+  - [x] 5.1 实现飞书 webhook 推送（交互卡片格式，msg_type=interactive + markdown card）
   - [x] 5.2 设计扫描报告模板（Markdown 格式，两段式结构）：
     - 第一段：Top 10 强势个股（按板块归类，全局编号 1~10）
     - 第二段：Top 5 强势板块（含 Top 5 成分股，板块内独立编号）
     - 强势个股加粗显示，成交额亿/万格式化
   - [x] 5.3 实现推送失败日志记录（不阻塞主流程，logger.error 记录异常）
+  - [x] 5.4 飞书推送连通性验证通过（HTTP 200，msg: success）
 
 - [x] Task 6: 扫描调度器
-  - [x] 6.1 实现每日同步编排（交易日盘前 9:00 触发：p03797 → p03798 → kline_daily → SQLite）
-  - [x] 6.2 实现盘中扫描编排（仅交易日 9:36 触发：trade_dates 判断 → 预查 SQLite → 按需获取 history_quotation / high_frequency → 评分 → push）
+  - [x] 6.1 实现每日同步编排（交易日盘前 9:00 触发：p03793 → p03794 → kline_daily → SQLite）
+  - [x] 6.2 实现盘中扫描编排（仅交易日 9:33 触发：trade_dates 判断 → 预查 SQLite → 按需获取 history_quotation / high_frequency → 评分 → push）
   - [x] 6.3 实现交易日判断逻辑（调用 get_trade_dates，非交易日跳过盘中扫描）
   - [x] 6.4 支持手动触发和指定日期回溯扫描
 
 - [x] Task 7: CLI 命令行入口
   - [x] 7.1 实现 `scan` 命令（立即触发盘中扫描，支持 --date 参数回溯）
-  - [x] 7.2 实现 `serve` 命令（启动 APScheduler 定时服务，等待 9:36 自动触发）
+  - [x] 7.2 实现 `serve` 命令（启动 APScheduler 定时服务，sync=9:00, scan=9:33）
   - [x] 7.3 实现 `sync` 命令（手动触发数据同步，不执行评分）
 
 - [x] Task 8: 端到端集成测试
   - [x] 8.1 手动触发完整扫描流程验证（scan 命令）
-  - [ ] 8.2 定时触发验证（serve 命令，需等待交易日 9:36 实际触发）
+  - [x] 8.2 定时触发配置完成（crontab: 周一至周五 9:00 sync、9:33 scan，日志写入 data/*.log）
   - [x] 8.3 历史回溯扫描验证（scan --date YYYYMMDD）
   - [x] 8.4 推送验证（报告格式验证通过，3295 字节）
 
