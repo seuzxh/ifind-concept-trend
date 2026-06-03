@@ -198,17 +198,11 @@ class BacktestRunner:
                     "Report saved: %s", report_path,
                 )
 
-            strong_count = sum(
-                1 for s in stock_results
-                if s.get("is_strong")
-            )
-
             return {
                 "date": date_display,
                 "status": "success",
                 "pool_count": len(stock_results),
                 "board_count": len(board_results),
-                "strong_count": strong_count,
                 "top_board": (
                     board_results[0]["concept_name"]
                     if board_results else ""
@@ -271,9 +265,9 @@ class BacktestRunner:
             "",
             f"{'日期':<14s} {'状态':<8s} "
             f"{'股池':>6s} {'板块':>4s} "
-            f"{'强势':>4s} {'TOP板块':<14s} "
+            f"{'TOP板块':<14s} "
             f"{'TOP个股':<16s} {'得分':>6s}",
-            "-" * 80,
+            "-" * 72,
         ]
 
         for r in results:
@@ -281,7 +275,7 @@ class BacktestRunner:
                 lines.append(
                     f"{r['date']:<14s} {'跳过':<8s} "
                     f"{'---':>6s} {'---':>4s} "
-                    f"{'---':>4s} {'---':<14s} "
+                    f"{'---':<14s} "
                     f"{'---':<16s} {'---':>6s}"
                 )
             elif r["status"] == "error":
@@ -294,13 +288,12 @@ class BacktestRunner:
                     f"{r['date']:<14s} {'成功':<8s} "
                     f"{r.get('pool_count', 0):>6d} "
                     f"{r.get('board_count', 0):>4d} "
-                    f"{r.get('strong_count', 0):>4d} "
                     f"{r.get('top_board', ''):<14s} "
                     f"{r.get('top_stock', ''):<16s} "
                     f"{r.get('top_score', 0):>6.2f}"
                 )
 
-        lines.append("-" * 80)
+        lines.append("-" * 72)
         lines.append("")
 
         summary_path.write_text(

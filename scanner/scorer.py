@@ -218,12 +218,6 @@ class ScoringEngine:
                     "vol_ratio"
                 ]
             )
-            is_strong = (
-                f["change_ratio"]
-                > self.strong_change_threshold
-                or f["body_change_ratio"]
-                > self.strong_body_threshold
-            )
             results.append({
                 "stock_code": f["stock_code"],
                 "stock_name": f["stock_name"],
@@ -247,7 +241,6 @@ class ScoringEngine:
                     f["vol_ratio"], 4
                 ),
                 "score": round(score, 2),
-                "is_strong": 1 if is_strong else 0,
             })
 
         results.sort(
@@ -263,6 +256,9 @@ class ScoringEngine:
     ) -> dict | None:
         """计算单只股票的原始因子值.
 
+        仅使用前 2 根 1 分钟 K 线（09:30、09:31）
+        进行计算。
+
         Args:
             stock_code: 股票代码.
             bars: 1 分钟 K 线字典列表（按时间升序）.
@@ -272,8 +268,12 @@ class ScoringEngine:
             包含所有原始因子值的字典，或 None 表示数据
             不足以计算.
         """
-        first_open = bars[0]["open"]
-        last_close = bars[-1]["close"]
+        used_bars = bars[:2]
+        if len(used_bars) < 2:
+            return None
+
+        first_open = used_bars[0]["open"]
+        last_close = used_bars[-1]["close"]
 
         if prev_close <= 0 or first_open <= 0:
             return None
@@ -285,10 +285,10 @@ class ScoringEngine:
             (last_close - first_open) / first_open * 100
         )
         total_amount = sum(
-            b.get("amount") or 0 for b in bars
+            b.get("amount") or 0 for b in used_bars
         )
         total_volume = sum(
-            b.get("volume") or 0 for b in bars
+            b.get("volume") or 0 for b in used_bars
         )
         vol_ratio = 0.0
 
@@ -380,30 +380,16 @@ class ScoringEngine:
             if stock_count == 0:
                 continue
 
-            strong_count = sum(
-                1 for s in stocks if s["is_strong"]
-            )
-            strong_ratio = (
-                strong_count / stock_count * 100
-            )
             avg_score = (
                 sum(s["score"] for s in stocks)
                 / stock_count
-            )
-            board_score = (
-                strong_ratio
-                * self.board_weights["strong_ratio"]
-                + avg_score
-                * self.board_weights["avg_score"]
             )
 
             results.append({
                 "concept_name": concept,
                 "stock_count": stock_count,
-                "strong_count": strong_count,
-                "strong_ratio": round(strong_ratio, 2),
                 "avg_score": round(avg_score, 2),
-                "board_score": round(board_score, 2),
+                "board_score": round(avg_score, 2),
             })
 
         results.sort(

@@ -128,15 +128,11 @@ class Notifier:
         """
         now = datetime.now().strftime("%H:%M")
         pool_count = len(stock_results)
-        strong_count = sum(
-            1 for s in stock_results if s.get("is_strong")
-        )
 
         lines: list[str] = [
             f"### 行业板块强势扫描 {trade_date}",
             f"> 扫描时间：{now} | "
-            f"观察股池：{pool_count}只 | "
-            f"强势个股：{strong_count}只",
+            f"观察股池：{pool_count}只",
         ]
 
         # 个股归属板块
@@ -201,12 +197,11 @@ class Notifier:
         for brd_rank, board in enumerate(top_5_boards, 1):
             concept = board["concept_name"]
             bs = board["board_score"]
-            sc = board.get("strong_count", 0)
             tc = board.get("stock_count", 0)
             lines.append("")
             lines.append(
                 f"**{brd_rank}. {concept}**"
-                f"  得分 {bs:.1f} | 强势 {sc}/{tc}"
+                f"  得分 {bs:.1f} | {tc}只"
             )
             lines.append(
                 "| # | 股票 | 得分 | 涨幅 | 实涨"
@@ -258,10 +253,7 @@ def _stock_cell(stock: dict) -> str:
     """
     name = stock.get("stock_name", "")
     code = stock.get("stock_code", "").split(".")[0]
-    label = f"{name}({code})"
-    if stock.get("is_strong"):
-        return f"**{label}**"
-    return label
+    return f"{name}({code})"
 
 
 def _fmt_pct(value: float) -> str:
