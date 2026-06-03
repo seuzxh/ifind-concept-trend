@@ -107,6 +107,30 @@ def main(argv: list[str] | None = None) -> None:
         help="指定日期（YYYYMMDD），默认今天",
     )
 
+    # backtest 命令
+    bt_parser = sub.add_parser(
+        "backtest",
+        help="回溯模拟测试",
+    )
+    bt_parser.add_argument(
+        "--start",
+        type=str,
+        required=True,
+        help="回溯起始日期（YYYYMMDD）",
+    )
+    bt_parser.add_argument(
+        "--end",
+        type=str,
+        required=True,
+        help="回溯结束日期（YYYYMMDD）",
+    )
+    bt_parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="强制刷新数据（跳过预查）",
+    )
+
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -125,6 +149,10 @@ def main(argv: list[str] | None = None) -> None:
         elif args.command == "sync":
             date_ymd = args.date or _today_ymd()
             _cmd_sync(scanner, date_ymd)
+        elif args.command == "backtest":
+            _cmd_backtest(
+                scanner, args.start, args.end, args.force,
+            )
     finally:
         scanner.close()
 
@@ -216,6 +244,41 @@ def _today_ymd() -> str:
     """返回今天的 YYYYMMDD 字符串."""
     from datetime import datetime
     return datetime.now().strftime("%Y%m%d")
+
+
+def _cmd_backtest(
+    scanner: Scanner,
+    start_ymd: str,
+    end_ymd: str,
+    force: bool,
+) -> None:
+    """执行 backtest 命令.
+
+    Args:
+        scanner: 扫描调度器.
+        start_ymd: 起始日期.
+        end_ymd: 结束日期.
+        force: 是否强制刷新.
+    """
+    from pathlib import Path
+
+    from scanner.backtest import BacktestRunner
+
+    reports_dir = Path("data/reports")
+    logging.info(
+        "Backtest: %s ~ %s (force=%s).",
+        start_ymd, end_ymd, force,
+    )
+    runner = BacktestRunner(scanner, reports_dir)
+    results = runner.run(start_ymd, end_ymd, force)
+
+    success = sum(
+        1 for r in results if r["status"] == "success"
+    )
+    print(
+        f"\nBacktest completed: "
+        f"{success} trade days processed."
+    )
 
 
 if __name__ == "__main__":
