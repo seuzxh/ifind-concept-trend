@@ -3,36 +3,37 @@
 > 基于 [spec](../.trae/specs/build-concept-trend-scanner/spec.md) 和 [iFinD HTTP API 用户手册](./iFinD_HTTP_API_用户手册.md) 整理。
 > 对应 spec Task 0，需要在开发前完成所有接口的连通性和数据格式验证。
 
----
+***
 
 ## 前置条件
 
 - [x] 用户提供 `refresh_token`
 
----
+***
 
 ## 1. Token 鉴权
 
-| 项目 | 内容 |
-|------|------|
-| **接口** | `POST https://quantapi.51ifind.com/api/v1/get_access_token` |
-| **Headers** | `{"Content-Type": "application/json", "refresh_token": "<用户的refresh_token>"}` |
-| **预期返回** | `{"data": {"access_token": "xxx", "expired_time": "YYYY-MM-DD HH:MM:SS"}, "errorcode": 0}` |
+| 项目          | 内容                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------ |
+| **接口**      | `POST https://quantapi.51ifind.com/api/v1/get_access_token`                                |
+| **Headers** | `{"Content-Type": "application/json", "refresh_token": "<用户的refresh_token>"}`              |
+| **预期返回**    | `{"data": {"access_token": "xxx", "expired_time": "YYYY-MM-DD HH:MM:SS"}, "errorcode": 0}` |
 
 **验证结果**：
-- [x] 接口连通，返回有效 access_token
-- [x] access_token 格式：`<32位hex>.signs_NjM0ODM2NDI5`
-- [x] expired_time 格式：`"YYYY-MM-DD HH:MM:SS"`（如 `"2026-06-03 23:01:07"`）
 
----
+- [x] 接口连通，返回有效 access\_token
+- [x] access\_token 格式：`<32位hex>.signs_NjM0ODM2NDI5`
+- [x] expired\_time 格式：`"YYYY-MM-DD HH:MM:SS"`（如 `"2026-06-03 23:01:07"`）
+
+***
 
 ## 2. 概念人气明细（热门板块筛选）
 
-| 项目 | 内容 |
-|------|------|
-| **接口** | `POST https://quantapi.51ifind.com/api/v1/data_pool` |
-| **Headers** | `{"Content-Type": "application/json", "access_token": "<token>"}` |
-| **formData** | 见下方 |
+| 项目           | 内容                                                                |
+| ------------ | ----------------------------------------------------------------- |
+| **接口**       | `POST https://quantapi.51ifind.com/api/v1/data_pool`              |
+| **Headers**  | `{"Content-Type": "application/json", "access_token": "<token>"}` |
+| **formData** | 见下方                                                               |
 
 ```json
 {
@@ -50,15 +51,16 @@
 
 **返回字段说明**：
 
-| 字段 | 含义 | 验证结果 |
-|------|------|---------|
-| `p03797_f001` | 概念板块名称（如 "芯片概念"） | 已确认 |
-| `p03797_f002` | 交易日期（格式 `YYYY/MM/DD`） | 已确认 |
-| `p03797_f009` | 自选热度（字符串数值，如 "39833.55"） | 已确认 |
-| `p03797_f010` | 自选热度变化率（字符串数值） | 已确认 |
+| 字段            | 含义                       | 验证结果 |
+| ------------- | ------------------------ | ---- |
+| `p03797_f001` | 概念板块名称（如 "芯片概念"）         | 已确认  |
+| `p03797_f002` | 交易日期（格式 `YYYY/MM/DD`）    | 已确认  |
+| `p03797_f009` | 自选热度（字符串数值，如 "39833.55"） | 已确认  |
+| `p03797_f010` | 自选热度变化率（字符串数值）           | 已确认  |
 
 **数据格式**：列式数组，每个字段对应一个值数组，
 非行式 `table_data` 字典列表。示例：
+
 ```json
 {
   "tables": [{
@@ -73,20 +75,21 @@
 ```
 
 **验证要点**：
+
 - [x] 接口连通，返回数据非空（约 380+ 个概念板块）
 - [x] 确认 `p03797_f001` 为概念板块名称
 - [x] 确认 `p03797_f002` 格式为 `YYYY/MM/DD`
 - [x] 确认 `p03797_f009` / `p03797_f010` 为字符串数值
 
----
+***
 
 ## 3. 概念板块热门成分股
 
-| 项目 | 内容 |
-|------|------|
-| **接口** | `POST https://quantapi.51ifind.com/api/v1/data_pool` |
-| **Headers** | `{"Content-Type": "application/json", "access_token": "<token>"}` |
-| **formData** | 见下方 |
+| 项目           | 内容                                                                |
+| ------------ | ----------------------------------------------------------------- |
+| **接口**       | `POST https://quantapi.51ifind.com/api/v1/data_pool`              |
+| **Headers**  | `{"Content-Type": "application/json", "access_token": "<token>"}` |
+| **formData** | 见下方                                                               |
 
 ```json
 {
@@ -105,29 +108,30 @@
 
 **返回字段说明**：
 
-| 字段 | 含义 | 验证结果 |
-|------|------|---------|
-| `jydm` | 交易代码（格式 `600584.SH`） | 已确认 |
-| `jydm_mc` | 股票中文名 | 已确认 |
-| `p03798_f001` | 交易日期（格式 `YYYY/MM/DD`） | 已确认 |
-| `p03798_f012` | 涨跌幅（数值） | 已确认 |
-| `p03798_f016` | 区间开始日期（格式 `YYYY/MM/DD`） | 已确认 |
+| 字段            | 含义                      | 验证结果 |
+| ------------- | ----------------------- | ---- |
+| `jydm`        | 交易代码（格式 `600584.SH`）    | 已确认  |
+| `jydm_mc`     | 股票中文名                   | 已确认  |
+| `p03798_f001` | 交易日期（格式 `YYYY/MM/DD`）   | 已确认  |
+| `p03798_f012` | 涨跌幅（数值）                 | 已确认  |
+| `p03798_f016` | 区间开始日期（格式 `YYYY/MM/DD`） | 已确认  |
 
 **数据格式**：列式数组（同 p03797）。
 
 **验证要点**：
+
 - [x] 接口连通，返回数据非空
 - [x] 确认 `jydm` 格式为 `XXXXXX.SH/SZ`
 
----
+***
 
 ## 4. 历史日K线（获取昨收价和近5日OHLCV）
 
-| 项目 | 内容 |
-|------|------|
-| **接口** | `POST https://quantapi.51ifind.com/api/v1/cmd_history_quotation` |
-| **Headers** | `{"Content-Type": "application/json", "access_token": "<token>"}` |
-| **formData** | 见下方 |
+| 项目           | 内容                                                                |
+| ------------ | ----------------------------------------------------------------- |
+| **接口**       | `POST https://quantapi.51ifind.com/api/v1/cmd_history_quotation`  |
+| **Headers**  | `{"Content-Type": "application/json", "access_token": "<token>"}` |
+| **formData** | 见下方                                                               |
 
 ```json
 {
@@ -143,6 +147,7 @@
 
 **数据格式**：列式数组。`thscode` 和 `time` 在
 `tables[0]` 外层，指标数据在 `tables[0].table` 内。
+
 ```json
 {
   "tables": [{
@@ -159,20 +164,21 @@
 ```
 
 **验证要点**：
+
 - [x] 接口连通，返回 6 个交易日数据
 - [x] `open/high/low/close` 价格字段完整
 - [x] `volume/amount` 成交量/额字段完整
 - [x] 最后一根 K 线 close = 226.23（2026-06-02）
 
----
+***
 
 ## 5. 开盘 5 分钟 K 线（盘中实时数据）
 
-| 项目 | 内容 |
-|------|------|
-| **接口** | `POST https://quantapi.51ifind.com/api/v1/high_frequency` |
-| **Headers** | `{"Content-Type": "application/json", "access_token": "<token>"}` |
-| **formData** | 见下方 |
+| 项目           | 内容                                                                |
+| ------------ | ----------------------------------------------------------------- |
+| **接口**       | `POST https://quantapi.51ifind.com/api/v1/high_frequency`         |
+| **Headers**  | `{"Content-Type": "application/json", "access_token": "<token>"}` |
+| **formData** | 见下方                                                               |
 
 ```json
 {
@@ -215,21 +221,22 @@
 ```
 
 **验证要点**：
-- [x] 接口连通，返回 6 根 1 分钟 K 线（09:30~09:35）
+
+- [x] 接口连通，返回 6 根 1 分钟 K 线（09:30\~09:35）
 - [x] `open/high/low/close` 价格字段完整
 - [x] `volume/amount` 成交量/额字段完整
 - [x] `changeRatio` 涨跌幅字段完整
-- [x] `LB` 量比字段存在且数值合理（范围 0.43 ~ 5.70）
+- [x] `LB` 量比字段存在且数值合理（范围 0.43 \~ 5.70）
 
----
+***
 
 ## 6. 交易日判断
 
-| 项目 | 内容 |
-|------|------|
-| **接口** | `POST https://quantapi.51ifind.com/api/v1/get_trade_dates` |
-| **Headers** | `{"Content-Type": "application/json", "access_token": "<token>"}` |
-| **formData** | 见下方 |
+| 项目           | 内容                                                                |
+| ------------ | ----------------------------------------------------------------- |
+| **接口**       | `POST https://quantapi.51ifind.com/api/v1/get_trade_dates`        |
+| **Headers**  | `{"Content-Type": "application/json", "access_token": "<token>"}` |
+| **formData** | 见下方                                                               |
 
 ```json
 {
@@ -247,6 +254,7 @@
 
 **数据格式**：`tables` 为字典（非列表），`time` 键
 直接包含日期字符串列表。
+
 ```json
 {
   "tables": {
@@ -256,22 +264,23 @@
 ```
 
 **验证要点**：
+
 - [x] 接口连通，返回交易日列表
 - [x] 2026-05-30（周六）和 2026-05-31（周日）不在返回中
 - [x] 返回 2026-06-01、06-02、06-03 三个交易日
 
----
+***
 
 ## 验证结果汇总
 
-| # | 接口 | 状态 | 备注 |
-|---|------|------|------|
-| 1 | Token 鉴权 | **通过** | access_token 有效期 7 天 |
-| 2 | 概念人气明细 (p03797) | **通过** | 列式数组；需用 `date`/`tjzq` 参数 |
-| 3 | 板块热门成分股 (p03798) | **通过** | 列式数组；需用 `date`/`hy`/`tjzq` 参数 |
-| 4 | 历史日K线 (cmd_history_quotation) | **通过** | 列式数组；thscode/time 在外层 |
-| 5 | 开盘 5 分钟 K 线 (high_frequency) | **通过** | LB 需 `calculate: {LB: "5"}` 参数 |
-| 6 | 交易日判断 | **通过** | tables 为 dict，非 list |
+| # | 接口                              | 状态     | 备注                             |
+| - | ------------------------------- | ------ | ------------------------------ |
+| 1 | Token 鉴权                        | **通过** | access\_token 有效期 7 天          |
+| 2 | 概念人气明细 (p03797)                 | **通过** | 列式数组；需用 `date`/`tjzq` 参数       |
+| 3 | 板块热门成分股 (p03798)                | **通过** | 列式数组；需用 `date`/`hy`/`tjzq` 参数  |
+| 4 | 历史日K线 (cmd\_history\_quotation) | **通过** | 列式数组；thscode/time 在外层          |
+| 5 | 开盘 5 分钟 K 线 (high\_frequency)   | **通过** | LB 需 `calculate: {LB: "5"}` 参数 |
+| 6 | 交易日判断                           | **通过** | tables 为 dict，非 list           |
 
 ### 已修复的代码问题
 
@@ -279,4 +288,5 @@
    client.py 从 `p03797_f002` 改为 `date`，从 `p03798_f001` 改为 `date`
 2. **数据解析器**：`_extract_table_rows` 从行式解析改为列式数组转置
 3. **交易日解析器**：`_extract_date_list` 支持 `tables.time` 字典格式
-4. **high_frequency functionpara**：添加 `Fill: "Original"` 和 `calculate: {LB: "5"}`
+4. **high\_frequency functionpara**：添加 `Fill: "Original"` 和 `calculate: {LB: "5"}`
+

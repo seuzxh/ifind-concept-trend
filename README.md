@@ -76,9 +76,9 @@ python -m scanner sync
 ### 每日同步（交易日盘前 9:00，由 `DataSync` 编排）
 
 ```
-data_pool(p03797) → 全部概念人气明细
+data_pool(p03793) → 全部行业人气明细
     └─ 筛选：热度 Top20 + 变化率 Top20 → 按名称去重 → 热门板块列表
-data_pool(p03798) → 逐板块获取成分股
+data_pool(p03794) → 逐行业获取成分股
     └─ 筛选：每板块涨跌幅 Top30 → 剔除 ST → 合并去重 → 观察股池
 cmd_history_quotation → 预查 SQLite → 仅对缺失股票获取日K线
 全部写入 SQLite
@@ -109,8 +109,8 @@ webhook → 推送扫描报告至企业微信
 
 ## 观察股池筛选逻辑
 
-1. **概念板块筛选**：从 p03797 全部概念中，按自选热度取 Top20 + 按自选热度变化率取 Top20，按板块名称合并去重（约 40 个板块）
-2. **成分股筛选**：每个板块按涨跌幅（p03798_f012）降序取 Top30，剔除 ST 股，所有板块个股合并去重（约 500~600 只）
+1. **行业板块筛选**：从 p03793 全部行业中，按自选热度取 Top20 + 按自选热度变化率取 Top20，按名称合并去重（约 37 个行业）
+2. **成分股筛选**：每个行业按涨跌幅（p03794_f012）降序取 Top30，剔除 ST 股，所有行业个股合并去重（约 800~1200 只）
 
 ## 评分因子
 
@@ -132,8 +132,8 @@ webhook → 推送扫描报告至企业微信
 | 用途 | 接口 | 关键参数 |
 |------|------|---------|
 | 鉴权 | `POST /api/v1/get_access_token` | Header: refresh_token |
-| 概念人气明细 | `POST /api/v1/data_pool` | p03797, functionpara: date/tjzq |
-| 板块热门成分股 | `POST /api/v1/data_pool` | p03798, functionpara: date/hy/tjzq |
+| 行业人气明细 | `POST /api/v1/data_pool` | p03793, functionpara: date/hyfl/tjzq |
+| 行业成分股 | `POST /api/v1/data_pool` | p03794, functionpara: date/hyfl/tjzq/hy |
 | 历史日K线 | `POST /api/v1/cmd_history_quotation` | Interval=D |
 | 开盘5分钟K线 | `POST /api/v1/high_frequency` | calculate: {"LB": "5"} |
 | 交易日查询 | `POST /api/v1/get_trade_dates` | marketcode: 212001 |
@@ -142,8 +142,8 @@ webhook → 推送扫描报告至企业微信
 
 | 表 | 用途 | 写入时机 |
 |----|------|---------|
-| concept_popularity | 概念人气明细 | 交易日盘前 9:00 |
-| board_stock_relation | 板块-个股关联 | 交易日盘前 9:00 |
+| concept_popularity | 行业人气明细 | 交易日盘前 9:00 |
+| board_stock_relation | 行业-个股关联 | 交易日盘前 9:00 |
 | kline_daily | 日K线数据 | 交易日盘中 |
 | kline_1min | 1分钟K线数据 | 交易日盘中 |
 | stock_daily_scan | 个股扫描结果 | 交易日盘中 |

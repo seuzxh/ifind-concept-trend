@@ -21,7 +21,7 @@ board_scoring:
 # Scheduler
 scheduler:
   scan_time: "09:36"           # 盘中扫描时间
-  sync_time: "20:00"           # 每日人气数据同步时间
+  sync_time: "09:00"           # 交易日盘前同步时间（人气+成分股）
 
 # Database
 database:
