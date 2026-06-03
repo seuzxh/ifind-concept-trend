@@ -232,8 +232,8 @@ class IfindClient:
         data = {
             "reportname": "p03797",
             "functionpara": {
-                "p03797_f002": date,
-                "p03797_f003": tjzq,
+                "date": date,
+                "tjzq": tjzq,
             },
             "outputpara": (
                 "p03797_f001:Y,p03797_f002:Y,"
@@ -395,8 +395,8 @@ class IfindClient:
     def _extract_table_rows(body: dict) -> list[dict]:
         """从 data_pool / 行情响应中提取行数据.
 
-        API 将结果封装在 ``tables[0]["table"]`` 中，
-        格式为字典列表（字段 -> 值）.
+        API 返回列式数组格式：``tables[0]["table"]`` 中每个
+        字段对应一个值数组，需要按索引转置为行字典列表。
 
         Args:
             body: 完整的 API 响应字典.
@@ -408,8 +408,25 @@ class IfindClient:
         if not tables:
             return []
         table = tables[0].get("table", {})
-        rows = table.get("table_data", [])
-        return rows if isinstance(rows, list) else []
+        if not table:
+            return []
+
+        # 先尝试 table_data 行式格式（兼容旧版）
+        rows = table.get("table_data")
+        if isinstance(rows, list) and rows:
+            return rows
+
+        # 列式数组格式：将每列按索引转置为行字典
+        col_names = list(table.keys())
+        col_values = [table[k] for k in col_names]
+        if not col_values:
+            return []
+        n_rows = len(col_values[0])
+        return [
+            {col_names[j]: col_values[j][i]
+             for j in range(len(col_names))}
+            for i in range(n_rows)
+        ]
 
     @staticmethod
     def _extract_date_list(body: dict) -> list[str]:
@@ -422,13 +439,21 @@ class IfindClient:
             日期字符串列表.
         """
         tables = body.get("tables", [])
+
+        # get_trade_dates 返回 {"time": [...]}，而非列表
+        if isinstance(tables, dict):
+            dates = tables.get("time", [])
+            if isinstance(dates, list):
+                return dates
+            return []
+
+        # 兼容其他接口的 tables 列表格式
         if not tables:
             return []
         table = tables[0].get("table", {})
         rows = table.get("table_data", [])
         if not rows:
             return []
-        # 每行是一个包含日期字段的字典，键名不固定
         dates: list[str] = []
         for row in rows:
             for val in row.values():
