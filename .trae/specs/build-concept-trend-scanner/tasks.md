@@ -1,7 +1,7 @@
 # Tasks
 
 - [ ] Task 0: 接口预验证（前置任务）
-  - [ ] 0.1 用户提供 refresh_token，验证 Token 获取接口连通性
+  - [x] 0.1 用户提供 refresh_token，验证 Token 获取接口连通性
   - [ ] 0.2 验证 data_pool(p03797) 概念人气明细接口，确认返回字段格式
   - [ ] 0.3 验证 data_pool(p03798) 板块热门成分股接口，确认返回字段格式
   - [ ] 0.4 验证 cmd_history_quotation 接口（日K线：获取昨收价和近5日OHLCV）
