@@ -307,7 +307,10 @@ class IfindClient:
             "indicators": ",".join(indicators),
             "starttime": starttime,
             "endtime": endtime,
-            "functionpara": {"Interval": interval},
+            "functionpara": {
+                "Fill": "Original",
+                "Interval": interval,
+            },
         }
         return self._request(
             "/api/v1/high_frequency", data
