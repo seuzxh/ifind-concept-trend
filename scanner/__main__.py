@@ -185,17 +185,13 @@ def _cmd_scan(
     print(f"\n=== 扫描结果 {date_ymd} ===")
     print(f"个股: {len(stock_results)} 条")
     print(f"板块: {len(board_results)} 条")
-    strong = sum(
-        1 for s in stock_results if s.get("is_strong")
-    )
-    print(f"强势个股: {strong} 只")
 
     print("\nTOP 5 板块:")
     for i, b in enumerate(board_results[:5], 1):
         print(
             f"  {i}. {b['concept_name']:<12s} "
             f"score={b['board_score']:.2f} "
-            f"strong={b['strong_count']}/{b['stock_count']}"
+            f"stocks={b['stock_count']}"
         )
 
     print("\nTOP 10 个股:")
@@ -206,7 +202,7 @@ def _cmd_scan(
             reverse=True,
         )[:10], 1
     ):
-        tag = " [STRONG]" if s.get("is_strong") else ""
+        tag = ""
         print(
             f"  {i:2d}. {s['stock_code']} "
             f"{s['stock_name']:<8s} "

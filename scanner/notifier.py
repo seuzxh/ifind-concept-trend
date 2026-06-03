@@ -77,8 +77,15 @@ class Notifier:
             )
 
         payload = {
-            "msgtype": "markdown",
-            "markdown": {"content": content},
+            "msg_type": "interactive",
+            "card": {
+                "elements": [
+                    {
+                        "tag": "markdown",
+                        "content": content,
+                    }
+                ]
+            },
         }
 
         try:
@@ -89,10 +96,11 @@ class Notifier:
             )
             resp.raise_for_status()
             data = resp.json()
-            if data.get("errcode", 0) != 0:
+            code = data.get("code", data.get("errcode", 0))
+            if code != 0:
                 logger.error(
                     "Webhook returned error: %s",
-                    data.get("errmsg", "unknown"),
+                    data.get("msg", data.get("errmsg", "unknown")),
                 )
                 return False
             logger.info(
@@ -150,7 +158,7 @@ class Notifier:
                 default="",
             )
 
-        # 第一段：Top 10 个股表格
+        # 第一段：Top 10 个股
         lines.append("")
         lines.append("**Top 10 强势个股**")
         top_10 = sorted(
@@ -159,30 +167,26 @@ class Notifier:
             reverse=True,
         )[:10]
 
-        lines.append(
-            "| # | 股票 | 得分 | 涨幅 | 实涨 | 成交额 |"
-            " 板块 |"
-        )
-        lines.append(
-            "|--:|------|-----:|-----:|-----:|-------:|------|"
-        )
         for rank, stock in enumerate(top_10, 1):
-            name = _stock_cell(stock)
+            name = stock.get("stock_name", "")
+            code = (
+                stock.get("stock_code", "").split(".")[0]
+            )
             score = f"{stock['score']:.1f}"
-            change = _fmt_pct(stock.get("change_ratio", 0))
+            change = _fmt_pct(
+                stock.get("change_ratio", 0)
+            )
             body = _fmt_pct(
                 stock.get("body_change_ratio", 0)
             )
             amount = _fmt_amount(
                 stock.get("total_amount", 0)
             )
-            concept = _truncate(
-                stock.get("_best_concept", ""), 8
-            )
+            concept = stock.get("_best_concept", "")
             lines.append(
-                f"| {rank} | {name} | {score} "
-                f"| {change} | {body} | {amount} "
-                f"| {concept} |"
+                f"{rank}. **{name}({code})** "
+                f"得分{score} | 涨{change} "
+                f"实{body} | {amount} | {concept}"
             )
 
         # 第二段：Top 5 板块详情
@@ -203,14 +207,6 @@ class Notifier:
                 f"**{brd_rank}. {concept}**"
                 f"  得分 {bs:.1f} | {tc}只"
             )
-            lines.append(
-                "| # | 股票 | 得分 | 涨幅 | 实涨"
-                " | 成交额 |"
-            )
-            lines.append(
-                "|--:|------|-----:|-----:|-----:"
-                "|-------:|"
-            )
             board_stocks = sorted(
                 [
                     s for s in stock_results
@@ -220,7 +216,10 @@ class Notifier:
                 reverse=True,
             )[:5]
             for s_rank, stock in enumerate(board_stocks, 1):
-                name = _stock_cell(stock)
+                name = stock.get("stock_name", "")
+                code = (
+                    stock.get("stock_code", "").split(".")[0]
+                )
                 score = f"{stock['score']:.1f}"
                 change = _fmt_pct(
                     stock.get("change_ratio", 0)
@@ -232,28 +231,12 @@ class Notifier:
                     stock.get("total_amount", 0)
                 )
                 lines.append(
-                    f"| {s_rank} | {name} | {score} "
-                    f"| {change} | {body} "
-                    f"| {amount} |"
+                    f"  {s_rank}. {name}({code}) "
+                    f"得分{score} | 涨{change} "
+                    f"实{body} | {amount}"
                 )
 
         return "\n".join(lines)
-
-
-def _stock_cell(stock: dict) -> str:
-    """生成表格中的个股名称单元格.
-
-    强势个股加粗显示.
-
-    Args:
-        stock: 个股评分字典.
-
-    Returns:
-        格式化后的单元格字符串.
-    """
-    name = stock.get("stock_name", "")
-    code = stock.get("stock_code", "").split(".")[0]
-    return f"{name}({code})"
 
 
 def _fmt_pct(value: float) -> str:
@@ -270,10 +253,3 @@ def _fmt_amount(value: float) -> str:
     if value >= 1e4:
         return f"{value / 1e4:.0f}万"
     return f"{value:.0f}元"
-
-
-def _truncate(text: str, max_len: int) -> str:
-    """截断文本到指定长度."""
-    if len(text) <= max_len:
-        return text
-    return text[: max_len - 3] + "..."
