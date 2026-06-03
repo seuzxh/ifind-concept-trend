@@ -250,6 +250,9 @@ class ScoringEngine:
                 "is_strong": 1 if is_strong else 0,
             })
 
+        results.sort(
+            key=lambda r: r["score"], reverse=True
+        )
         return results
 
     def _calc_stock_factors(

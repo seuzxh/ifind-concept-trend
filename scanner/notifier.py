@@ -133,7 +133,7 @@ class Notifier:
         )
 
         lines: list[str] = [
-            f"### 概念板块强势扫描 {trade_date}",
+            f"### 行业板块强势扫描 {trade_date}",
             f"> 扫描时间：{now} | "
             f"观察股池：{pool_count}只 | "
             f"强势个股：{strong_count}只",
@@ -154,40 +154,40 @@ class Notifier:
                 default="",
             )
 
-        # 第一段：Top 10 个股归类
+        # 第一段：Top 10 个股表格
         lines.append("")
-        lines.append("**Top 10 强势个股（按板块归类）**")
+        lines.append("**Top 10 强势个股**")
         top_10 = sorted(
             stock_results,
             key=lambda s: s.get("score", 0),
             reverse=True,
         )[:10]
 
-        # 按板块分组
-        grouped: dict[str, list[tuple[int, dict]]] = {}
-        for idx, stock in enumerate(top_10, 1):
-            concept = stock.get("_best_concept", "")
-            grouped.setdefault(concept, []).append(
-                (idx, stock)
-            )
-
-        # 板块按 board_score 降序
-        sorted_groups = sorted(
-            grouped.items(),
-            key=lambda g: board_score_map.get(g[0], 0),
-            reverse=True,
+        lines.append(
+            "| # | 股票 | 得分 | 涨幅 | 实涨 | 成交额 |"
+            " 板块 |"
         )
-
-        for concept, items in sorted_groups:
-            bs = board_score_map.get(concept, 0)
-            name = _truncate(concept, 12)
-            lines.append("")
-            lines.append(f"▎{name} — 板块得分 {bs:.2f}")
-            for rank, stock in items:
-                lines.append(
-                    f"  {rank}. "
-                    + _format_stock_line(stock)
-                )
+        lines.append(
+            "|--:|------|-----:|-----:|-----:|-------:|------|"
+        )
+        for rank, stock in enumerate(top_10, 1):
+            name = _stock_cell(stock)
+            score = f"{stock['score']:.1f}"
+            change = _fmt_pct(stock.get("change_ratio", 0))
+            body = _fmt_pct(
+                stock.get("body_change_ratio", 0)
+            )
+            amount = _fmt_amount(
+                stock.get("total_amount", 0)
+            )
+            concept = _truncate(
+                stock.get("_best_concept", ""), 8
+            )
+            lines.append(
+                f"| {rank} | {name} | {score} "
+                f"| {change} | {body} | {amount} "
+                f"| {concept} |"
+            )
 
         # 第二段：Top 5 板块详情
         lines.append("")
@@ -203,11 +203,18 @@ class Notifier:
             bs = board["board_score"]
             sc = board.get("strong_count", 0)
             tc = board.get("stock_count", 0)
-            name = _truncate(concept, 12)
             lines.append("")
             lines.append(
-                f"▎{brd_rank}. {name} | "
-                f"得分 {bs:.2f} | 强势 {sc}/{tc}"
+                f"**{brd_rank}. {concept}**"
+                f"  得分 {bs:.1f} | 强势 {sc}/{tc}"
+            )
+            lines.append(
+                "| # | 股票 | 得分 | 涨幅 | 实涨"
+                " | 成交额 |"
+            )
+            lines.append(
+                "|--:|------|-----:|-----:|-----:"
+                "|-------:|"
             )
             board_stocks = sorted(
                 [
@@ -218,43 +225,43 @@ class Notifier:
                 reverse=True,
             )[:5]
             for s_rank, stock in enumerate(board_stocks, 1):
+                name = _stock_cell(stock)
+                score = f"{stock['score']:.1f}"
+                change = _fmt_pct(
+                    stock.get("change_ratio", 0)
+                )
+                body = _fmt_pct(
+                    stock.get("body_change_ratio", 0)
+                )
+                amount = _fmt_amount(
+                    stock.get("total_amount", 0)
+                )
                 lines.append(
-                    f"  {s_rank}. "
-                    + _format_stock_line(stock)
+                    f"| {s_rank} | {name} | {score} "
+                    f"| {change} | {body} "
+                    f"| {amount} |"
                 )
 
         return "\n".join(lines)
 
 
-def _format_stock_line(stock: dict) -> str:
-    """格式化单只个股行.
+def _stock_cell(stock: dict) -> str:
+    """生成表格中的个股名称单元格.
+
+    强势个股加粗显示.
 
     Args:
         stock: 个股评分字典.
 
     Returns:
-        格式化后的字符串.
+        格式化后的单元格字符串.
     """
     name = stock.get("stock_name", "")
     code = stock.get("stock_code", "").split(".")[0]
-    score = stock.get("score", 0)
-    change = stock.get("change_ratio", 0)
-    body = stock.get("body_change_ratio", 0)
-    amount = stock.get("total_amount", 0)
-    is_strong = stock.get("is_strong")
-
-    name_str = (
-        f"**{name}({code})**"
-        if is_strong else f"{name}({code})"
-    )
-    change_str = _fmt_pct(change)
-    body_str = _fmt_pct(body)
-    amount_str = _fmt_amount(amount)
-
-    return (
-        f"{name_str} 得分{score:.2f} | "
-        f"涨{change_str} | 实{body_str} | {amount_str}"
-    )
+    label = f"{name}({code})"
+    if stock.get("is_strong"):
+        return f"**{label}**"
+    return label
 
 
 def _fmt_pct(value: float) -> str:

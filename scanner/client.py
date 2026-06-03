@@ -148,11 +148,31 @@ class IfindClient:
             "access_token": self._access_token,
         }
 
-        response = self._post_with_rate_limit(url, headers, data)
+        try:
+            response = self._post_with_rate_limit(
+                url, headers, data
+            )
+        except requests.exceptions.HTTPError as exc:
+            if (
+                hasattr(exc, "response")
+                and exc.response is not None
+                and exc.response.status_code == 401
+            ):
+                logger.info(
+                    "HTTP 401 Unauthorized, refreshing token."
+                )
+                self._refresh_access_token()
+                headers["access_token"] = self._access_token
+                response = self._post_with_rate_limit(
+                    url, headers, data
+                )
+            else:
+                raise
+
         body = response.json()
         errorcode = body.get("errorcode", 0)
 
-        # 令牌过期时自动刷新并重试
+        # API 层面令牌过期时自动刷新并重试
         if errorcode in _TOKEN_EXPIRED_CODES:
             logger.info(
                 "Token expired (errorcode=%s), refreshing.",
