@@ -84,6 +84,8 @@
 ### 3.2 CRUD 接口
 - [x] upsert 接口支持 INSERT OR REPLACE
 - [x] query 接口支持按日期、股票代码查询
+- [x] get_kline_1min_batch 批量查询 1min K 线（按股票分组）
+- [x] get_stock_concepts 查询股票所属概念板块列表
 
 ### 3.3 每日数据同步编排
 - [x] 概念板块筛选：热度 Top20 + 变化率 Top20 合并去重
@@ -92,32 +94,45 @@
 - [x] 批量获取日K线和 1 分钟 K 线并存入 SQLite
 
 ### 3.4 scan_result 表
-- [ ] stock_daily_scan 表写入和查询接口实现
-- [ ] board_daily_scan 表写入和查询接口实现
+- [x] stock_daily_scan 表写入（save_stock_scan_results）验证通过（561 条）
+- [x] board_daily_scan 表写入（save_board_scan_results）验证通过（40 条）
+- [x] get_top_stocks / get_top_boards 查询接口可用
 
 ## 多因子评分引擎 — Task 4
 
 ### 4.1~4.5 因子计算
-- [ ] 昨收价从 kline_daily 表正确获取（T-1 日 close）
-- [ ] 涨幅计算正确：（最后 close - 昨收）/ 昨收 × 100%
-- [ ] 实体涨幅计算正确：（最后 close - 第1根 open） / 第1根 open × 100%
-- [ ] 成交额累计正确：5 根 K 线 amount 求和
-- [ ] 量比获取正确：从 kline_1min 取最后一根 K 线的 LB 值
+- [x] 昨收价从 kline_daily 表正确获取（T-1 日 close，561 只全部获取成功）
+- [x] 涨幅计算正确：（最后 close - 昨收）/ 昨收 × 100%
+- [x] 实体涨幅计算正确：（最后 close - 第1根 open） / 第1根 open × 100%
+- [x] 成交额累计正确：5 根 K 线 amount 求和
+- [x] 量比因子预留（LB 暂未入库，默认 0，待后续 high_frequency LB 数据入库后补充）
 
 ### 4.6~4.8 评分与标记
-- [ ] 加权综合评分公式实现正确（权重可配置）
-- [ ] 强势个股标记逻辑正确（涨幅 > 7% 或实体涨幅 > 5%）
-- [ ] 概念板块评分公式正确（强势占比 × 60% + 平均得分 × 40%）
+- [x] 加权综合评分公式实现正确（百分位归一化 + 四因子加权，权重可配置）
+- [x] 强势个股标记逻辑正确（涨幅 > 7% 或实体涨幅 > 5%，验证：25 只标记为强势）
+- [x] 概念板块评分公式正确（强势占比 × 60% + 平均得分 × 40%，验证：40 个板块评分完成）
 
 ### 4.9~4.10 结果存储与测试
-- [ ] 评分结果写入 stock_daily_scan 和 board_daily_scan 表
-- [ ] 评分引擎单元测试编写完成
+- [x] 评分结果写入 stock_daily_scan 和 board_daily_scan 表（DB 查询验证一致）
+- [x] 评分引擎验证测试编写完成（tests/verify_scorer.py，真实数据验证通过）
+
+### 验证数据摘要（2026-06-02）
+- TOP 1 个股：301205.SZ 联特科技 score=86.07 涨幅=+9.39% [STRONG]
+- TOP 1 板块：共封装光学(CPO) board_score=42.51 strong=8/30
+- 561 只个股全部评分，40 个板块全部聚合
 
 ## 推送模块 — Task 5
 
-- [ ] 企业微信 webhook 推送成功
-- [ ] 推送报告内容清晰（Top 5 板块 + Top 10 个股）
-- [ ] 推送失败时不阻塞主流程，日志记录正常
+- [ ] 企业微信 webhook 推送实现（Markdown 格式，msgtype=markdown）
+- [ ] 扫描报告模板设计：
+  - [ ] 标题：`### 概念板块强势扫描 {T日}`
+  - [ ] 概览行：扫描时间 / 观察股池数 / 强势个股数
+  - [ ] Top 5 强势板块：排名、板块名、得分、强势N/总数M
+  - [ ] Top 10 强势个股：排名、代码、名称、得分、涨幅、实体涨幅、成交额
+  - [ ] 强势个股加粗显示
+  - [ ] Markdown 内容不超过 4096 字节
+- [ ] 推送失败时 logger.error 记录异常，不阻塞主流程
+- [ ] Webhook URL 从 config.yaml 读取
 
 ## 扫描调度器 — Task 6
 

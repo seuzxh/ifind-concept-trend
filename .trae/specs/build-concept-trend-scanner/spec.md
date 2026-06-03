@@ -68,19 +68,21 @@
 
 #### Scenario: 获取个股上一交易日日 K 线（基准数据）
 - **WHEN** 盘中扫描前需要获取监控标的池上一交易日的 OHLCV 数据（用于计算涨幅）
-- **THEN** 调用 `POST /api/v1/cmd_history_quotation`
-  - codes: 监控标的池所有股票代码（逗号分隔）
+- **THEN** 先查询 SQLite kline_daily 表，筛选出已有 T-1 日数据的股票代码
+- **AND** 仅对缺失 T-1 日数据的股票调用 `POST /api/v1/cmd_history_quotation`
+  - codes: 缺失数据的股票代码（逗号分隔）
   - indicators: `open,close,high,low,volume,amount`
-  - startdate / enddate: 近 5 个交易日（取最后一根即为 T-1 日）
+  - startdate / enddate: T-1 日（仅获取 1 个交易日，避免重复下载）
   - functionpara.Interval: `D`（日线）
-- **AND** 取最近一根 K 线的 `close` 作为昨收价（preClose）
-- **AND** 同时获取近 5 日成交额数据，可作为成交额对比基准（可选）
+- **AND** 取 T-1 日 K 线的 `close` 作为昨收价（preClose）
 - **AND** 数据写入 SQLite 的 kline_daily 表，供回测分析使用
+- **NOTE**：每日同步阶段已批量获取近 5 日日K线，盘中扫描仅需补充缺失的 T-1 日数据
 
 #### Scenario: 获取个股开盘 5 分钟 K 线（盘中实时数据）
 - **WHEN** 在 T 日 9:36 需要获取监控标的池的开盘前 5 分钟行情数据
-- **THEN** 调用 `POST /api/v1/high_frequency`
-  - codes: 监控标的池所有股票代码（逗号分隔）
+- **THEN** 先查询 SQLite kline_1min 表，筛选出已有 T 日 5 条 K 线数据的股票
+- **AND** 仅对缺失数据的股票调用 `POST /api/v1/high_frequency`
+  - codes: 缺失数据的股票代码（逗号分隔）
   - indicators: `open,high,low,close,volume,amount,changeRatio,LB`
   - starttime: `T日 09:30:00`
   - endtime: `T日 09:35:00`
@@ -174,16 +176,31 @@
 
 ### Requirement: 结果推送模块
 
-系统 SHALL 将扫描结果通过 webhook 推送：
+系统 SHALL 将扫描结果通过企业微信群机器人 Webhook 推送：
 
 #### Scenario: 推送扫描报告
 - **WHEN** 扫描完成
-- **THEN** 将结果以文本格式推送到企业微信 webhook
-- **AND** 推送内容包括：Top 5 强势概念板块（板块名、得分、强势个股数）、Top 10 强势个股（股票名、代码、得分、关键指标）
+- **THEN** 调用 `POST {webhook_url}` 以 Markdown 格式（msgtype=markdown）推送扫描报告
+- **AND** 推送内容采用两段式结构：
+  - 标题：`### 概念板块强势扫描 {T日}`
+  - 概览行：`> 扫描时间 / 观察股池数 / 强势个股数`
+  - **第一段：Top 10 强势个股（按板块归类）**
+    - 个股按 score 降序取 Top 10
+    - 每只个股归入其所属概念板块中 board_score 最高的板块（避免重复）
+    - 按板块分组显示，全局编号 1~10 连续
+    - 强势个股用加粗显示
+  - **第二段：Top 5 强势板块（含 Top 5 成分股）**
+    - 板块按 board_score 降序取 Top 5
+    - 每个板块展示其归属个股的 Top 5（板块内独立编号 1~5）
+    - 板块头显示：排名、板块名、得分、强势个股数/总数
+- **AND** Webhook URL 从 `config/config.yaml` 的 `webhook.url` 读取
+- **AND** Markdown 内容不超过 4096 字节
+- **AND** 推送报告模板详见 `Docs/推送报告模板.md`
 
 #### Scenario: 推送失败处理
-- **WHEN** webhook 推送失败
-- **THEN** 记录日志并保留扫描结果到本地，不阻塞后续流程
+- **WHEN** webhook 推送失败（网络错误或 HTTP 非 200）
+- **THEN** 记录 logger.error 日志（含异常信息）
+- **AND** 不阻塞后续流程，扫描结果已存入 SQLite 可查询
 
 ### Requirement: CLI 命令行入口
 
@@ -232,7 +249,7 @@ p03797 和 p03798 的 outputpara 中部分字段含义需确认：
 ## 数据流程总览
 
 ```
-每日同步（含非交易日，如每日 20:00 或 T日 9:00）
+每日同步（交易日盘前 T日 9:00）
   │
   ├─ 1. data_pool(p03797) ──→ 获取最近一日概念人气明细（统计周期：近一周）
   │    └─ 筛选：自选热度 Top20 + 自选热度变化率 Top20 → 去重得热门概念板块列表
@@ -242,24 +259,26 @@ p03797 和 p03798 的 outputpara 中部分字段含义需确认：
   │
   └─ 3. 存入 SQLite（板块-个股关联）
   │
-  └─ NOTE：人气数据在非交易日也可能变化，因此每日都需同步
+  └─ NOTE：仅交易日盘前执行，确保 9:36 盘中扫描时观察股池数据已就绪
 
 交易日盘中 (T日 9:36)
   │
   ├─ 4. get_trade_dates ──→ 确认 T 是否交易日（非交易日跳过后续步骤）
   │
-  ├─ 5. cmd_history_quotation ──→ 获取监控标的池近 5 日日K线
+  ├─ 5. 预查 SQLite ──→ 筛选已有日K线/1min数据的股票
+  │
+  ├─ 6. cmd_history_quotation ──→ 仅对缺失股票获取 T-1 日日K线
   │    └─ 取 T-1 日 close 作为昨收价，存入 kline_daily 表
   │
-  ├─ 6. high_frequency ──→ 获取监控标的池的开盘 5 分钟 K 线（09:30~09:35）
+  ├─ 7. high_frequency ──→ 仅对缺失股票获取开盘 5 分钟 K 线（09:30~09:35）
   │    ├─ indicators: open,high,low,close,volume,amount,changeRatio,LB
   │    └─ 结合昨收价计算：涨幅、实体涨幅、累计成交额、量比
   │
-  ├─ 7. 评分引擎 ──→ 计算个股强势得分 + 板块强势得分
+  ├─ 8. 评分引擎 ──→ 计算个股强势得分 + 板块强势得分
   │
-  ├─ 8. 存入 SQLite（扫描结果）
+  ├─ 9. 存入 SQLite（扫描结果）
   │
-  └─ 9. webhook 推送 ──→ 企业微信推送扫描报告
+  └─ 10. webhook 推送 ──→ 企业微信推送扫描报告
 ```
 
 ---

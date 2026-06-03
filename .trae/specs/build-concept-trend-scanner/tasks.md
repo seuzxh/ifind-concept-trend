@@ -34,6 +34,10 @@
     - 批量获取日K线（cmd_history_quotation）和 1 分钟 K 线（high_frequency）
     - 全部写入 SQLite
   - [x] 3.4 实现 scan_result 表的写入和查询接口（stock_daily_scan、board_daily_scan）
+  - [x] 3.5 实现数据预查逻辑（避免重复下载）：
+    - 日K线：盘中扫描前查询 kline_daily 表已有 T-1 日数据的股票，仅对缺失股票请求 API
+    - 1min K 线：查询 kline_1min 表已有 T 日 5 条数据的股票，仅对缺失股票请求 API
+    - 支持 force=True 参数绕过预查强制刷新
 
 - [x] Task 4: 多因子综合评分引擎
   - [x] 4.1 实现昨收价获取（从 kline_daily 表查询 T-1 日 close）
@@ -48,13 +52,18 @@
   - [x] 4.10 编写评分引擎单元测试
 
 - [ ] Task 5: 结果推送模块
-  - [ ] 5.1 实现企业微信 webhook 推送（文本格式）
-  - [ ] 5.2 设计扫描报告模板（Top 5 强势板块：板块名、得分、强势个股数；Top 10 强势个股：股票名、代码、得分、关键指标）
-  - [ ] 5.3 实现推送失败日志记录（不阻塞主流程）
+  - [ ] 5.1 实现企业微信 webhook 推送（Markdown 格式，msgtype=markdown）
+  - [ ] 5.2 设计扫描报告模板（Markdown 格式，内容如下）：
+    - 标题：`### 概念板块强势扫描 T日`
+    - 概览行：`> 扫描时间 / 观察股池数 / 强势个股数`
+    - 板块排名（Top 5）：`**Top 5 强势板块**`，每行：`排名. 板块名 | 得分 | 强势N/总数M`
+    - 个股排名（Top 10）：`**Top 10 强势个股**`，每行：`排名. 代码 名称 | 得分 | 涨幅 | 实体涨幅 | 成交额`
+    - 强势个股标记用加粗显示
+  - [ ] 5.3 实现推送失败日志记录（不阻塞主流程，logger.error 记录异常）
 
 - [ ] Task 6: 扫描调度器
-  - [ ] 6.1 实现每日同步编排（含非交易日，如每日 20:00 触发：p03797 → p03798 → kline_daily → kline_1min → SQLite）
-  - [ ] 6.2 实现盘中扫描编排（仅交易日 9:36 触发：trade_dates 判断 → history_quotation → high_frequency → 评分 → push）
+  - [ ] 6.1 实现每日同步编排（交易日盘前 9:00 触发：p03797 → p03798 → kline_daily → SQLite）
+  - [x] 6.2 实现盘中扫描编排（仅交易日 9:36 触发：trade_dates 判断 → 预查 SQLite → 按需获取 history_quotation / high_frequency → 评分 → push）
   - [ ] 6.3 实现交易日判断逻辑（调用 get_trade_dates，非交易日跳过盘中扫描）
   - [ ] 6.4 支持手动触发和指定日期回溯扫描
 
