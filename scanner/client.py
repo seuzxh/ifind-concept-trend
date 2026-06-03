@@ -220,7 +220,7 @@ class IfindClient:
         date: str,
         tjzq: str = "近一周",
     ) -> list[dict]:
-        """从数据池 p03797 获取概念人气排名.
+        """从数据池 p03793 获取行业人气排名.
 
         Args:
             date: 交易日期，如 ``"2026-06-02"``.
@@ -230,14 +230,15 @@ class IfindClient:
             API 返回的原始记录字典列表.
         """
         data = {
-            "reportname": "p03797",
+            "reportname": "p03793",
             "functionpara": {
                 "date": date,
+                "hyfl": "同花顺三级行业",
                 "tjzq": tjzq,
             },
             "outputpara": (
-                "p03797_f001:Y,p03797_f002:Y,"
-                "p03797_f009:Y,p03797_f010:Y"
+                "p03793_f001,p03793_f002,"
+                "p03793_f009,p03793_f010"
             ),
         }
         body = self._request("/api/v1/data_pool", data)
@@ -249,26 +250,27 @@ class IfindClient:
         concept_name: str,
         tjzq: str = "近一周",
     ) -> list[dict]:
-        """从数据池 p03798 获取热门板块成分股.
+        """从数据池 p03794 获取行业成分股.
 
         Args:
             date: 交易日期，如 ``"2026-06-02"``.
-            concept_name: 概念板块名称.
+            concept_name: 行业名称.
             tjzq: 统计周期筛选条件（默认 ``"近一周"``）.
 
         Returns:
             API 返回的原始记录字典列表.
         """
         data = {
-            "reportname": "p03798",
+            "reportname": "p03794",
             "functionpara": {
                 "date": date,
-                "hy": concept_name,
+                "hyfl": "同花顺三级行业",
                 "tjzq": tjzq,
+                "hy": concept_name,
             },
             "outputpara": (
-                "jydm:Y,jydm_mc:Y,p03798_f001:Y,"
-                "p03798_f012:Y,p03798_f016:Y"
+                "jydm,jydm_mc,p03794_f001,"
+                "p03794_f012,p03794_f016"
             ),
         }
         body = self._request("/api/v1/data_pool", data)
