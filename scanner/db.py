@@ -473,6 +473,86 @@ class Database:
         return count
 
     # ------------------------------------------------------------------
+    # 1 分钟 K 线 — 批量查询
+    # ------------------------------------------------------------------
+
+    def get_kline_1min_batch(
+        self,
+        trade_date: str,
+        stock_codes: list[str] | None = None,
+    ) -> dict[str, list[dict]]:
+        """返回指定日期的 1 分钟 K 线，按股票分组.
+
+        Args:
+            trade_date: 交易日期字符串.
+            stock_codes: 可选的证券代码列表用于过滤.
+
+        Returns:
+            stock_code -> 行字典列表（按 bar_time 升序）.
+        """
+        conn = self._get_conn()
+        if stock_codes:
+            placeholders = ",".join(
+                "?" for _ in stock_codes
+            )
+            cursor = conn.execute(
+                f"""SELECT stock_code, bar_time,
+                           open, high, low, close,
+                           volume, amount, change_ratio
+                    FROM kline_1min
+                    WHERE trade_date = ?
+                      AND stock_code IN ({placeholders})
+                    ORDER BY stock_code, bar_time""",
+                (trade_date, *stock_codes),
+            )
+        else:
+            cursor = conn.execute(
+                """SELECT stock_code, bar_time,
+                          open, high, low, close,
+                          volume, amount, change_ratio
+                   FROM kline_1min
+                   WHERE trade_date = ?
+                   ORDER BY stock_code, bar_time""",
+                (trade_date,),
+            )
+        result: dict[str, list[dict]] = {}
+        for row in cursor.fetchall():
+            d = dict(row)
+            code = d.pop("stock_code")
+            result.setdefault(code, []).append(d)
+        return result
+
+    def get_stock_concepts(
+        self,
+        trade_date: str,
+    ) -> dict[str, list[str]]:
+        """返回指定日期每只股票所属的概念板块列表.
+
+        Args:
+            trade_date: 交易日期字符串.
+
+        Returns:
+            stock_code -> concept_name 列表的映射.
+        """
+        conn = self._get_conn()
+        cursor = conn.execute(
+            """SELECT stock_code, concept_name
+               FROM board_stock_relation
+               WHERE trade_date = (
+                   SELECT MAX(trade_date)
+                   FROM board_stock_relation
+                   WHERE trade_date <= ?
+               )""",
+            (trade_date,),
+        )
+        result: dict[str, list[str]] = {}
+        for row in cursor.fetchall():
+            code = row["stock_code"]
+            concept = row["concept_name"]
+            result.setdefault(code, []).append(concept)
+        return result
+
+    # ------------------------------------------------------------------
     # 扫描结果 — 个股
     # ------------------------------------------------------------------
 
