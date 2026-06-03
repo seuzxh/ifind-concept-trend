@@ -262,9 +262,9 @@ class IfindClient:
         data = {
             "reportname": "p03798",
             "functionpara": {
-                "p03798_f001": date,
-                "p03798_f002": concept_name,
-                "p03798_f003": tjzq,
+                "date": date,
+                "hy": concept_name,
+                "tjzq": tjzq,
             },
             "outputpara": (
                 "jydm:Y,jydm_mc:Y,p03798_f001:Y,"
