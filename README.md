@@ -6,8 +6,9 @@
 
 - **人气数据同步**：每日通过 ifind API 获取行业人气明细（p03793）和行业成分股（p03794），自动筛选观察股池
 - **智能预查**：所有 API 调用前先查 SQLite，已有数据则跳过下载，避免重复请求消耗配额
-- **多因子评分**：基于涨幅、实体涨幅、成交额、量比四个因子加权计算个股/板块强势得分
-- **结果推送**：通过企业微信 Webhook 推送 Top 5 板块 + Top 10 个股扫描报告
+- **多因子评分**：基于涨幅、实体涨幅、成交额、量比四个因子加权计算个股得分
+- **Top 50 反推强势板块**：从个股评分 Top 50 反推板块强势程度，聚焦有真实资金流入的板块
+- **飞书推送**：通过飞书 Webhook 推送 Top 5 板块 + Top 10 个股扫描报告
 - **定时 + 手动**：支持 APScheduler 定时调度和 CLI 手动触发
 
 ## 项目结构
@@ -21,7 +22,9 @@ scanner/                 # 主包
 ├── models.py            # 数据模型（dataclass）
 ├── db.py                # SQLite 数据存储层（含预查方法）
 ├── sync.py              # 数据同步编排（含预查逻辑）
-├── scorer.py            # 多因子综合评分引擎
+├── scorer.py            # 多因子评分引擎 + Top50 板块评分
+├── notifier.py          # 飞书 Webhook 推送
+├── backtest.py          # 回溯模拟模块
 └── scheduler.py         # 扫描调度器（每日同步 + 盘中扫描）
 config/
 └── config.yaml.template # 配置文件模板
@@ -61,14 +64,18 @@ copy .env.example .env
 ### 3. 运行
 
 ```bash
-# 手动扫描
+# 手动扫描（默认当天，--force 强制刷新）
 python -m scanner scan
+python -m scanner scan --date 20260602 --force
 
 # 启动定时服务
 python -m scanner serve
 
 # 手动数据同步
 python -m scanner sync
+
+# 回溯模拟
+python -m scanner backtest --start 20260520 --end 20260602
 ```
 
 ## 数据流程
@@ -90,9 +97,10 @@ cmd_history_quotation → 预查 SQLite → 仅对缺失股票获取日K线
 get_trade_dates → 判断是否交易日（非交易日跳过）
 预查 SQLite → 筛选已有日K线/1min数据的股票
 cmd_history_quotation → 仅对缺失股票获取 T-1 日日K线（昨收价）
-high_frequency → 仅对缺失股票获取开盘 5 分钟实时行情
-多因子评分 → 个股强势得分 + 板块强势得分
-webhook → 推送扫描报告至企业微信
+high_frequency → 仅对缺失股票获取开盘 2 分钟实时行情
+多因子评分 → 个股四因子评分（涨幅/实体涨幅/成交额/量比）
+Top50 反推板块 → 取个股 Top50，统计每个板块强势指标 → 板块评分
+飞书 Webhook → 推送扫描报告
 ```
 
 ## 数据预查机制
@@ -112,18 +120,30 @@ webhook → 推送扫描报告至企业微信
 1. **行业板块筛选**：从 p03793 全部行业中，按自选热度取 Top20 + 按自选热度变化率取 Top20，按名称合并去重（约 37 个行业）
 2. **成分股筛选**：每个行业按涨跌幅（p03794_f012）降序取 Top30，剔除 ST 股，所有行业个股合并去重（约 800~1200 只）
 
-## 评分因子
+## 个股评分因子
+
+仅使用前 2 根 1min K 线（09:30~09:31）计算：
 
 | 因子 | 权重 | 说明 |
 |------|------|------|
 | 涨幅 | 0.25 | (当前价 - 昨收) / 昨收 × 100% |
 | 实体涨幅 | 0.30 | (当前价 - 开盘价) / 开盘价 × 100% |
-| 成交额 | 0.20 | 开盘 5 分钟累计成交额（百分位归一化） |
+| 成交额 | 0.20 | 开盘 2 分钟累计成交额（百分位归一化） |
 | 量比 | 0.25 | high_frequency LB 指标（需 calculate: {"LB": "5"}） |
 
 - 评分方式：每个因子在当批股票中做百分位归一化（0-100），再加权求和
-- 强势标记：涨幅 > 7% 或实体涨幅 > 5% 的个股标记为"强势"
-- 板块评分：强势占比 × 60% + 板块平均得分 × 40%
+
+## 板块评分规则（Top 50 反推）
+
+从个股评分 Top 50 反推板块强势程度：
+
+1. 取个股评分 Top 50 作为强势个股池
+2. 对每个板块统计：
+   - `top50_count`：该板块在 Top 50 中的个股数量
+   - `top50_avg_score`：该板块 Top 50 个股的平均得分
+   - `board_avg_change`：该板块全部成分股的涨幅均值
+3. 板块得分：`board_score = top50_count × 10 + top50_avg_score × 0.5`
+4. 仅展示 top50_count > 0 的板块
 
 所有权重和阈值可在 `config/config.yaml` 中调整。
 
@@ -147,21 +167,21 @@ webhook → 推送扫描报告至企业微信
 | kline_daily | 日K线数据 | 交易日盘中 |
 | kline_1min | 1分钟K线数据 | 交易日盘中 |
 | stock_daily_scan | 个股扫描结果 | 交易日盘中 |
-| board_daily_scan | 板块扫描结果 | 交易日盘中 |
+| board_daily_scan | 板块扫描结果（含 top50_count/top50_avg_score/board_avg_change） | 交易日盘中 |
 
 详细设计见 [sqlite数据库设计.md](Docs/sqlite数据库设计.md)。
 
 ## 推送报告
 
-扫描完成后通过企业微信群机器人 Webhook 推送 Markdown 格式报告，采用两段式结构：
+扫描完成后通过飞书 Webhook 推送 Markdown 格式报告，采用两段式结构：
 
-**第一段：Top 10 强势个股（按板块归类）**
-- 个股按 score 降序取 Top 10，每只归入其所属板块中 board_score 最高的板块
-- 按板块分组显示，全局编号 1~10 连续，强势个股加粗
+**第一段：Top 10 强势个股**
+- 个股按 score 降序取 Top 10，显示得分、涨幅、实体涨幅、成交额、所属板块
 
-**第二段：Top 5 强势板块（含 Top 5 成分股）**
-- 板块按 board_score 降序取 Top 5，每个板块展示归属个股 Top 5
-- 板块头显示排名、得分、强势个股数/总数
+**第二段：Top 5 强势板块（含涨幅 Top 5 成分股）**
+- 板块按 board_score 降序取 Top 5
+- 板块标题显示：得分、Top50 个股数、板块涨幅
+- 板块内成分股按涨幅降序展示 Top 5
 
 详细模板见 [推送报告模板.md](Docs/推送报告模板.md)。
 
@@ -169,11 +189,13 @@ webhook → 推送扫描报告至企业微信
 
 | 模块 | 类 | 职责 |
 |------|-----|------|
-| `scanner/client.py` | `IfindClient` | ifind HTTP 客户端（鉴权、限流、列式解析） |
+| `scanner/client.py` | `IfindClient` | ifind HTTP 客户端（鉴权、限流、列式解析、401自动刷新） |
 | `scanner/db.py` | `Database` | SQLite 持久化（DDL、upsert、预查、查询） |
 | `scanner/sync.py` | `DataSync` | 数据同步编排（人气/成分股/K线 + 预查跳过） |
-| `scanner/scorer.py` | `ScoringEngine` | 多因子评分引擎（归一化 + 加权 + 强势标记） |
+| `scanner/scorer.py` | `ScoringEngine` | 多因子评分引擎 + Top50 板块评分 |
+| `scanner/notifier.py` | `Notifier` | 飞书 Webhook 推送（interactive 卡片） |
 | `scanner/scheduler.py` | `Scanner` | 扫描调度器（每日同步 + 盘中扫描编排） |
+| `scanner/backtest.py` | `BacktestRunner` | 回溯模拟（逐日遍历 + 报告生成） |
 | `scanner/config.py` | `Config` | 配置加载（YAML + 环境变量） |
 
 ## 文档索引
@@ -186,8 +208,9 @@ webhook → 推送扫描报告至企业微信
 
 ### 产品规格（`.trae/specs/`）
 - [产品规格 Spec](.trae/specs/build-concept-trend-scanner/spec.md)
-- [任务拆解 Tasks](.trae/specs/build-concept-trend-scanner/tasks.md)
-- [验证清单 Checklist](.trae/specs/build-concept-trend-scanner/checklist.md)
+- [回溯模拟 Spec](.trae/specs/simulate-backtest/spec.md)
+- [行业API升级 Spec](.trae/specs/upgrade-industry-api/spec.md)
+- [板块评分优化 Spec](.trae/specs/optimize-board-scoring/spec.md)
 
 ### 智能体规则（`.trae/rules/`）
 - [项目规则](.trae/rules/project_rules.md)
@@ -199,15 +222,17 @@ webhook → 推送扫描报告至企业微信
 - [x] Task 1: 项目基础结构搭建
 - [x] Task 2: ifind API 数据采集模块
 - [x] Task 3: SQLite 数据存储模块（含数据预查逻辑）
-- [x] Task 4: 多因子综合评分引擎（561 只个股 + 40 个板块评分验证通过）
-- [x] Task 5: 结果推送模块（两段式报告 + 企业微信 webhook）
-- [x] Task 6: 扫描调度器（盘前同步 9:00 + 盘中扫描 9:36 + 交易日判断 + 手动/回溯）
-- [x] Task 7: CLI 命令行入口（scan/serve/sync）
-- [x] Task 8: 端到端集成测试（8.1/8.3/8.4 通过，8.2 需等实盘验证）
+- [x] Task 4: 多因子综合评分引擎
+- [x] Task 5: 结果推送模块（飞书 Webhook interactive 卡片）
+- [x] Task 6: 扫描调度器（盘前同步 9:00 + 盘中扫描 9:36 + 交易日判断）
+- [x] Task 7: CLI 命令行入口（scan/serve/sync/backtest）
+- [x] Task 8: 端到端集成测试
+- [x] 行业API升级（p03797/p03798 → p03793/p03794）
+- [x] 回溯模拟模块（0520~0602 回测验证通过）
+- [x] 板块评分优化（Top 50 个股反推强势板块）
 
 ## 后期扩展
 
 - 集成 qlib 回测分析
 - Web UI 可视化
 - 更多技术指标因子（MACD、RSI）
-- 多平台推送（飞书、钉钉）

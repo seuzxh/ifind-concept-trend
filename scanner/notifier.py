@@ -202,17 +202,23 @@ class Notifier:
             concept = board["concept_name"]
             bs = board["board_score"]
             tc = board.get("stock_count", 0)
+            t50 = board.get("top50_count", 0)
+            avg_chg = board.get("board_avg_change", 0)
             lines.append("")
             lines.append(
                 f"**{brd_rank}. {concept}**"
-                f"  得分 {bs:.1f} | {tc}只"
+                f"  得分{bs:.1f} | "
+                f"Top50: {t50}只 | "
+                f"板块涨幅{_fmt_pct(avg_chg)}"
             )
             board_stocks = sorted(
                 [
                     s for s in stock_results
                     if s.get("_best_concept") == concept
                 ],
-                key=lambda s: s.get("score", 0),
+                key=lambda s: s.get(
+                    "change_ratio", 0
+                ),
                 reverse=True,
             )[:5]
             for s_rank, stock in enumerate(board_stocks, 1):

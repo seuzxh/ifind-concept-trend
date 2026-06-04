@@ -191,6 +191,8 @@ def _cmd_scan(
         print(
             f"  {i}. {b['concept_name']:<12s} "
             f"score={b['board_score']:.2f} "
+            f"top50={b['top50_count']} | "
+            f"avg_change={b['board_avg_change']:.2f} | "
             f"stocks={b['stock_count']}"
         )
 

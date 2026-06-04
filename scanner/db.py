@@ -132,6 +132,10 @@ _DDL_STATEMENTS = [
         strong_count INTEGER,
         strong_ratio REAL,
         avg_score REAL,
+        top50_count INTEGER DEFAULT 0,
+        top50_avg_score REAL DEFAULT 0,
+        top50_avg_change REAL DEFAULT 0,
+        board_avg_change REAL DEFAULT 0,
         board_score REAL,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
     )""",
@@ -733,8 +737,10 @@ class Database:
                 """INSERT OR REPLACE INTO board_daily_scan
                    (trade_date, concept_name, stock_count,
                     strong_count, strong_ratio,
-                    avg_score, board_score)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    avg_score, top50_count,
+                    top50_avg_score, top50_avg_change,
+                    board_avg_change, board_score)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     trade_date,
                     row.get("concept_name"),
@@ -742,6 +748,10 @@ class Database:
                     row.get("strong_count"),
                     row.get("strong_ratio"),
                     row.get("avg_score"),
+                    row.get("top50_count", 0),
+                    row.get("top50_avg_score", 0),
+                    row.get("top50_avg_change", 0),
+                    row.get("board_avg_change", 0),
                     row.get("board_score"),
                 ),
             )
@@ -771,7 +781,9 @@ class Database:
         cursor = conn.execute(
             """SELECT concept_name, stock_count,
                       strong_count, strong_ratio,
-                      avg_score, board_score
+                      avg_score, top50_count,
+                      top50_avg_score, top50_avg_change,
+                      board_avg_change, board_score
                FROM board_daily_scan
                WHERE trade_date = ?
                ORDER BY board_score DESC

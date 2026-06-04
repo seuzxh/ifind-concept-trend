@@ -351,45 +351,107 @@ class ScoringEngine:
     ) -> list[dict]:
         """计算概念板块评分.
 
-        板块得分 = 强势个股占比 × strong_ratio_weight
-                  + 板块平均得分 × avg_score_weight.
+        从已排序的 stock_results 取 Top 50 个股作为强势
+        个股池，统计每个板块在 Top 50 中的数量与得分，计算
+        板块评分。
+
+        board_score = top50_count × 10 + top50_avg_score × 0.5
 
         Args:
             trade_date: 交易日期.
-            stock_results: 个股评分结果列表.
+            stock_results: 个股评分结果列表（已按 score 降序）.
             stock_concepts: 代码 -> 概念名称列表映射.
 
         Returns:
-            板块评分结果字典列表.
+            板块评分结果字典列表（已按 board_score 降序）.
         """
+        # 1. 取 Top 50 强势个股
+        top50 = stock_results[:50]
+
+        # 2. 构建每只股票所属板块列表（从 concept_names 字段）
+        stock_concept_map: dict[str, list[str]] = {}
+        for r in stock_results:
+            names = r.get("concept_names", "")
+            if names:
+                stock_concept_map[r["stock_code"]] = (
+                    names.split(",")
+                )
+            else:
+                stock_concept_map[r["stock_code"]] = []
+
+        # 3. 构建板块 -> 全部成分股 映射
         stock_map = {
             r["stock_code"]: r for r in stock_results
         }
-        board_stocks: dict[str, list[dict]] = {}
-        for code, concepts in stock_concepts.items():
+        board_all_stocks: dict[str, list[dict]] = {}
+        for code, concepts in stock_concept_map.items():
             if code not in stock_map:
                 continue
             for concept in concepts:
-                board_stocks.setdefault(
+                board_all_stocks.setdefault(
                     concept, []
                 ).append(stock_map[code])
 
+        # 4. 构建板块 -> Top50 成分股 映射
+        board_top50: dict[str, list[dict]] = {}
+        for r in top50:
+            for concept in stock_concept_map.get(
+                r["stock_code"], []
+            ):
+                board_top50.setdefault(
+                    concept, []
+                ).append(r)
+
+        # 5. 计算每个板块的指标和评分
         results = []
-        for concept, stocks in board_stocks.items():
-            stock_count = len(stocks)
-            if stock_count == 0:
+        for concept in board_top50:
+            top50_stocks = board_top50[concept]
+            top50_count = len(top50_stocks)
+            if top50_count == 0:
                 continue
 
-            avg_score = (
-                sum(s["score"] for s in stocks)
+            top50_avg_score = (
+                sum(s["score"] for s in top50_stocks)
+                / top50_count
+            )
+            top50_avg_change = (
+                sum(
+                    s["change_ratio"]
+                    for s in top50_stocks
+                )
+                / top50_count
+            )
+
+            all_stocks = board_all_stocks.get(concept, [])
+            stock_count = len(all_stocks)
+            board_avg_change = (
+                sum(
+                    s["change_ratio"]
+                    for s in all_stocks
+                )
                 / stock_count
+                if stock_count > 0
+                else 0.0
+            )
+
+            board_score = (
+                top50_count * 10 + top50_avg_score * 0.5
             )
 
             results.append({
                 "concept_name": concept,
                 "stock_count": stock_count,
-                "avg_score": round(avg_score, 2),
-                "board_score": round(avg_score, 2),
+                "top50_count": top50_count,
+                "top50_avg_score": round(
+                    top50_avg_score, 2
+                ),
+                "top50_avg_change": round(
+                    top50_avg_change, 4
+                ),
+                "board_avg_change": round(
+                    board_avg_change, 4
+                ),
+                "board_score": round(board_score, 2),
             })
 
         results.sort(
