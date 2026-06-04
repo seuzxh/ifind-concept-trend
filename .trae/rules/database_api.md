@@ -86,19 +86,19 @@ db.init_db()  # 创建表和索引（幂等操作）
 - **数据来源**：评分引擎计算（非外部 API）
 - **写入时机**：交易日 9:36 盘中扫描完成后
 - **唯一键**：(trade_date, stock_code)
-- **参数 results**：`list[dict]`，每个字典包含：stock_code, stock_name, concept_names, pre_close, open_price, current_price, change_ratio, body_change_ratio, total_amount, total_volume, vol_ratio, score, is_strong
-- **评分公式**：score = 涨幅×0.25 + 实体涨幅×0.30 + 成交额×0.20 + 量比×0.25
-- **强势标记**：is_strong=1 当 涨幅>7% 或 实体涨幅>5%
+- **参数 results**：`list[dict]`，每个字典包含：stock_code, stock_name, concept_names, pre_close, open_price, current_price, change_ratio, body_change_ratio, total_amount, total_volume, vol_ratio, score
+- **评分公式**：score = 涨幅×0.25 + 实体涨幅×0.30 + 成交额×0.20 + 量比×0.25（仅用前 2 根 1min K 线）
 
 ### save_board_scan_results(trade_date, results) -> int
 
 写入板块每日扫描评分结果。
 
-- **数据来源**：基于 stock_daily_scan 聚合计算
+- **数据来源**：基于 Top 50 个股反推计算
 - **写入时机**：交易日 9:36 个股扫描完成后
 - **唯一键**：(trade_date, concept_name)
-- **参数 results**：`list[dict]`，每个字典包含：concept_name, stock_count, strong_count, strong_ratio, avg_score, board_score
-- **评分公式**：board_score = strong_ratio × 0.6 + avg_score × 0.4
+- **参数 results**：`list[dict]`，每个字典包含：concept_name, stock_count, avg_score, board_score, top50_count, top50_avg_score, top50_avg_change, board_avg_change
+- **评分公式**：board_score = top50_count × 10 + top50_avg_score × 0.5
+- **过滤规则**：仅保留 top50_count > 0 的板块
 
 ---
 
